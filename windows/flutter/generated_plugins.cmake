@@ -3,10 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
-<<<<<<< HEAD
   flutter_tts
-=======
->>>>>>> 4fc437195bf590fb294bc38f2f57610439d77363
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
