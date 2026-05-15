@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.speed_app">
 
@@ -9,6 +10,13 @@
     android:name="com.google.android.geo.API_KEY"
     android:value="AIzaSyDAbyZRGlT6YwsC3v3CT78DE9s-66q1kWw"/>
        
+=======
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application
+        android:label="speed_app"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+>>>>>>> 4fc437195bf590fb294bc38f2f57610439d77363
         <activity
             android:name=".MainActivity"
             android:exported="true"
