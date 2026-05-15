@@ -9,7 +9,8 @@ import 'scooter_hud.dart';
 import 'car_hud.dart';
 
 void main() {
-  runApp(const SpeedApp());
+ print("Trigger new build");
+ runApp(const SpeedApp());
 }
 
 class SpeedApp extends StatefulWidget {
