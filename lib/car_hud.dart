@@ -23,15 +23,22 @@ class CarHud extends StatelessWidget {
           children: [
             if (speedLimit != null)
               Container(
-                padding: const EdgeInsets.all(25),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.95),
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.red.withOpacity(0.6),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    )
+                  ],
                 ),
                 child: Text(
                   "${speedLimit!}",
                   style: const TextStyle(
-                    fontSize: 60,
+                    fontSize: 55,
                     fontWeight: FontWeight.bold,
                     color: Colors.red,
                   ),
@@ -43,9 +50,17 @@ class CarHud extends StatelessWidget {
             Text(
               currentSpeed.toStringAsFixed(0),
               style: TextStyle(
-                fontSize: 100,
+                fontSize: 110,
                 fontWeight: FontWeight.bold,
                 color: isSpeeding ? Colors.yellow : Colors.white,
+                shadows: [
+                  Shadow(
+                    color: isSpeeding
+                        ? Colors.yellowAccent
+                        : Colors.blueAccent,
+                    blurRadius: 20,
+                  )
+                ],
               ),
             ),
 
