@@ -1,12 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.speed_app">
 
-    <!-- Required for background GPS -->
+    <!-- Location permissions -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
-    <!-- Required for foreground service -->
+    <!-- Foreground service permissions (Android 14 requires these) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 
@@ -24,7 +24,7 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
-        <!-- Flutter activity -->
+        <!-- Main Flutter activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
