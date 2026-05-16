@@ -1,4 +1,3 @@
-// update test
 import 'dart:isolate';
 import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
@@ -6,11 +5,13 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:permission_handler/permission_handler.dart';
 
 import 'gps_service.dart';
 import 'scooter_hud.dart';
 import 'car_hud.dart';
 import 'settings_screen.dart';
+import 'permission_page.dart';
 
 @pragma('vm:entry-point')
 void startCallback() {
@@ -43,14 +44,76 @@ void main() async {
   runApp(const SpeedApp());
 }
 
-class SpeedApp extends StatefulWidget {
+class SpeedApp extends StatelessWidget {
   const SpeedApp({super.key});
 
   @override
-  State<SpeedApp> createState() => _SpeedAppState();
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      initialRoute: "/permissions",
+      routes: {
+        "/permissions": (context) => const PermissionPage(),
+        "/home": (context) => const HomeWrapper(),
+      },
+    );
+  }
 }
 
-class _SpeedAppState extends State<SpeedApp> with WidgetsBindingObserver {
+/// Wrapper that starts the foreground service ONLY after permissions are granted
+class HomeWrapper extends StatefulWidget {
+  const HomeWrapper({super.key});
+
+  @override
+  State<HomeWrapper> createState() => _HomeWrapperState();
+}
+
+class _HomeWrapperState extends State<HomeWrapper> {
+  bool started = false;
+
+  @override
+  void initState() {
+    super.initState();
+    startServiceSafely();
+  }
+
+  Future<void> startServiceSafely() async {
+    // Ensure permissions are granted
+    if (await Permission.location.isGranted &&
+        await Permission.locationWhenInUse.isGranted) {
+      await FlutterForegroundTask.startService(
+        notificationTitle: "Speed HUD Running",
+        notificationText: "GPS Active",
+        callback: startCallback,
+      );
+      setState(() => started = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!started) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+
+    return const SpeedHome();
+  }
+}
+
+/// Your original HUD screen moved into its own widget
+class SpeedHome extends StatefulWidget {
+  const SpeedHome({super.key});
+
+  @override
+  State<SpeedHome> createState() => _SpeedHomeState();
+}
+
+class _SpeedHomeState extends State<SpeedHome> with WidgetsBindingObserver {
   final FlutterTts tts = FlutterTts();
 
   double currentSpeed = 0.0;
@@ -80,16 +143,7 @@ class _SpeedAppState extends State<SpeedApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    startForegroundService();
     initServiceListener();
-  }
-
-  Future<void> startForegroundService() async {
-    await FlutterForegroundTask.startService(
-      notificationTitle: "Speed HUD Running",
-      notificationText: "GPS Active",
-      callback: startCallback,
-    );
   }
 
   void initServiceListener() {
@@ -230,7 +284,9 @@ class _SpeedAppState extends State<SpeedApp> with WidgetsBindingObserver {
                             setState(() => testMode = !testMode);
                           },
                           onToggleBatterySaver: () {
-                            setState(() => batterySaver = !batterySaver);
+                            setState(() {
+                              batterySaver = !batterySaver;
+                            });
                           },
                         ),
                       ),
@@ -413,3 +469,4 @@ class _SpeedAppState extends State<SpeedApp> with WidgetsBindingObserver {
     );
   }
 }
+
