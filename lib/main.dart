@@ -8,12 +8,12 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
 import 'scooter_hud.dart';
 import 'car_hud.dart';
+import 'settings_screen.dart'; // ⭐ NEW IMPORT
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize foreground service
-   FlutterForegroundTask.init(
+  FlutterForegroundTask.init(
     androidNotificationOptions: AndroidNotificationOptions(
       channelId: 'speed_app_channel',
       channelName: 'Speed App Background Service',
@@ -64,6 +64,11 @@ class _SpeedAppState extends State<SpeedApp> {
 
   bool batterySaver = false;
 
+  // ⭐ TEST MODE VARIABLES
+  bool testMode = false;
+  int fakeSpeed = 0;
+  int fakeLimit = 25;
+
   @override
   void initState() {
     super.initState();
@@ -98,6 +103,27 @@ class _SpeedAppState extends State<SpeedApp> {
     location.changeSettings(interval: 1000);
 
     location.onLocationChanged.listen((LocationData data) {
+      // ⭐ TEST MODE OVERRIDE
+      if (testMode) {
+        fakeSpeed += 1;
+        if (fakeSpeed > 60) fakeSpeed = 0;
+
+        if (fakeSpeed % 20 == 0) {
+          if (fakeLimit == 25) fakeLimit = 35;
+          else if (fakeLimit == 35) fakeLimit = 45;
+          else if (fakeLimit == 45) fakeLimit = 55;
+          else fakeLimit = 25;
+        }
+
+        setState(() {
+          currentSpeed = fakeSpeed.toDouble();
+          speedLimit = fakeLimit;
+        });
+
+        return; // Skip real GPS
+      }
+
+      // ⭐ REAL GPS MODE
       double rawSpeed = data.speed ?? 0.0;
       double mph = rawSpeed * 2.23694;
 
@@ -136,7 +162,6 @@ class _SpeedAppState extends State<SpeedApp> {
     });
   }
 
-  // ⭐ OSM SPEED LIMITS (FREE)
   Future<void> fetchSpeedLimit(double lat, double lon) async {
     final url =
         "https://overpass-api.de/api/interpreter?data=[out:json];way(around:20,$lat,$lon)[\"maxspeed\"];out;";
@@ -202,104 +227,144 @@ class _SpeedAppState extends State<SpeedApp> {
         debugShowCheckedModeBanner: false,
         home: Scaffold(
           backgroundColor: Colors.black,
-          body: GestureDetector(
-            onHorizontalDragEnd: (details) {
-              if (details.primaryVelocity! < 0) {
-                setState(() => mode = "car");
-              } else {
-                setState(() => mode = "bike");
-              }
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              color: mode == "bike"
-                  ? (isNight
-                      ? Colors.blueGrey.shade900
-                      : Colors.blue.withOpacity(0.15))
-                  : (isNight
-                      ? Colors.red.shade900
-                      : Colors.red.withOpacity(0.15)),
-              child: Column(
-                children: [
-                  const SizedBox(height: 40),
-
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 10, horizontal: 20),
+          body: Stack(
+            children: [
+              // ⭐ SETTINGS BUTTON (TOP LEFT)
+              Positioned(
+                top: 40,
+                left: 20,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => SettingsScreen(
+                          testMode: testMode,
+                          batterySaver: batterySaver,
+                          onToggleTestMode: () {
+                            setState(() => testMode = !testMode);
+                          },
+                          onToggleBatterySaver: () {
+                            setState(() => batterySaver = !batterySaver);
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: mode == "bike"
-                          ? Colors.blue.withOpacity(0.25)
-                          : Colors.red.withOpacity(0.25),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: mode == "bike"
-                              ? Colors.blue.withOpacity(0.5)
-                              : Colors.red.withOpacity(0.5),
-                          blurRadius: 20,
-                          spreadRadius: 2,
-                        )
-                      ],
+                      color: Colors.grey.shade800,
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          mode == "bike"
-                              ? Icons.pedal_bike
-                              : Icons.directions_car,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          mode == "bike" ? "BIKE MODE" : "CAR MODE",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
-                      ],
-                    ),
+                    child: const Icon(Icons.settings,
+                        color: Colors.white, size: 26),
                   ),
-
-                  const SizedBox(height: 20),
-
-                  Expanded(
-                    child: mode == "bike"
-                        ? ScooterHud(
-                            currentSpeed: currentSpeed,
-                            speedLimit: speedLimit,
-                            currentLatLng: currentLatLng,
-                            heading: heading,
-                            tripDistanceMiles: tripDistanceMiles,
-                            tripSeconds: tripSeconds,
-                            avgSpeedMph: avgSpeedMph,
-                            maxSpeedMph: maxSpeedMph,
-                            isNight: isNight,
-                            batterySaver: batterySaver,
-                            onResetTrip: _resetTrip,
-                            onToggleBatterySaver: () {
-                              setState(() {
-                                batterySaver = !batterySaver;
-                              });
-                            },
-                          )
-                        : CarHud(
-                            currentSpeed: currentSpeed,
-                            speedLimit: speedLimit,
-                          ),
-                  ),
-                ],
+                ),
               ),
-            ),
+
+              // ⭐ MAIN HUD UI
+              GestureDetector(
+                onHorizontalDragEnd: (details) {
+                  if (details.primaryVelocity! < 0) {
+                    setState(() => mode = "car");
+                  } else {
+                    setState(() => mode = "bike");
+                  }
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  color: mode == "bike"
+                      ? (isNight
+                          ? Colors.blueGrey.shade900
+                          : Colors.blue.withOpacity(0.15))
+                      : (isNight
+                          ? Colors.red.shade900
+                          : Colors.red.withOpacity(0.15)),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 40),
+
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 10, horizontal: 20),
+                        decoration: BoxDecoration(
+                          color: mode == "bike"
+                              ? Colors.blue.withOpacity(0.25)
+                              : Colors.red.withOpacity(0.25),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: mode == "bike"
+                                  ? Colors.blue.withOpacity(0.5)
+                                  : Colors.red.withOpacity(0.5),
+                              blurRadius: 20,
+                              spreadRadius: 2,
+                            )
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              mode == "bike"
+                                  ? Icons.pedal_bike
+                                  : Icons.directions_car,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              mode == "bike"
+                                  ? "BIKE MODE"
+                                  : "CAR MODE",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      Expanded(
+                        child: mode == "bike"
+                            ? ScooterHud(
+                                currentSpeed: currentSpeed,
+                                speedLimit: speedLimit,
+                                currentLatLng: currentLatLng,
+                                heading: heading,
+                                tripDistanceMiles: tripDistanceMiles,
+                                tripSeconds: tripSeconds,
+                                avgSpeedMph: avgSpeedMph,
+                                maxSpeedMph: maxSpeedMph,
+                                isNight: isNight,
+                                batterySaver: batterySaver,
+                                onResetTrip: _resetTrip,
+                                onToggleBatterySaver: () {
+                                  setState(() {
+                                    batterySaver = !batterySaver;
+                                  });
+                                },
+                              )
+                            : CarHud(
+                                currentSpeed: currentSpeed,
+                                speedLimit: speedLimit,
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 }
-
