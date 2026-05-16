@@ -14,17 +14,16 @@ void main() async {
 
   // Initialize foreground service
   await FlutterForegroundTask.init(
-    androidNotificationOptions: const AndroidNotificationOptions(
+    androidNotificationOptions: AndroidNotificationOptions(
       channelId: 'speed_app_channel',
       channelName: 'Speed App Background Service',
       channelDescription: 'Keeps GPS and speed limit active',
       channelImportance: NotificationChannelImportance.HIGH,
       priority: NotificationPriority.HIGH,
-      iconData: NotificationIconData(
-        resType: ResourceType.mipmap,
-        resPrefix: ResourcePrefix.ic,
-        name: 'launcher',
-      ),
+    ),
+    iosNotificationOptions: const IOSNotificationOptions(
+      showNotification: true,
+      playSound: false,
     ),
     foregroundTaskOptions: const ForegroundTaskOptions(
       interval: 1000,
