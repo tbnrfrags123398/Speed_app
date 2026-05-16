@@ -1,13 +1,12 @@
-// ⭐⭐⭐ FULL UPDATED FILE WITH TEST MODE ACTIVE BANNER ⭐⭐⭐
-
+import 'dart:isolate';
 import 'package:flutter/material.dart';
-import 'package:location/location.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
+import 'gps_service.dart';
 import 'scooter_hud.dart';
 import 'car_hud.dart';
 import 'settings_screen.dart';
@@ -35,6 +34,8 @@ void main() async {
     ),
   );
 
+  FlutterForegroundTask.registerTaskHandler(GpsTaskHandler());
+
   runApp(const SpeedApp());
 }
 
@@ -45,8 +46,7 @@ class SpeedApp extends StatefulWidget {
   State<SpeedApp> createState() => _SpeedAppState();
 }
 
-class _SpeedAppState extends State<SpeedApp> {
-  final Location location = Location();
+class _SpeedAppState extends State<SpeedApp> with WidgetsBindingObserver {
   final FlutterTts tts = FlutterTts();
 
   double currentSpeed = 0.0;
@@ -70,93 +70,50 @@ class _SpeedAppState extends State<SpeedApp> {
   int fakeSpeed = 0;
   int fakeLimit = 25;
 
+  ReceivePort? _receivePort;
+
   @override
   void initState() {
     super.initState();
-    initLocation();
+    WidgetsBinding.instance.addObserver(this);
     startForegroundService();
+    initServiceListener();
   }
 
   Future<void> startForegroundService() async {
     await FlutterForegroundTask.startService(
       notificationTitle: "Speed HUD Running",
-      notificationText: "GPS + Speed Limit Active",
+      notificationText: "GPS Active",
     );
   }
 
-  @override
-  void dispose() {
-    FlutterForegroundTask.stopService();
-    super.dispose();
-  }
+  void initServiceListener() {
+    _receivePort = FlutterForegroundTask.receivePort;
 
-  Future<void> initLocation() async {
-    bool serviceEnabled = await location.serviceEnabled();
-    if (!serviceEnabled) {
-      serviceEnabled = await location.requestService();
-    }
-
-    PermissionStatus permission = await location.hasPermission();
-    if (permission == PermissionStatus.denied) {
-      permission = await location.requestPermission();
-    }
-
-    location.changeSettings(interval: 1000);
-
-    location.onLocationChanged.listen((LocationData data) {
-      if (testMode) {
-        fakeSpeed += 1;
-        if (fakeSpeed > 60) fakeSpeed = 0;
-
-        if (fakeSpeed % 20 == 0) {
-          if (fakeLimit == 25) fakeLimit = 35;
-          else if (fakeLimit == 35) fakeLimit = 45;
-          else if (fakeLimit == 45) fakeLimit = 55;
-          else fakeLimit = 25;
-
-          tts.speak("Speed limit is $fakeLimit miles per hour");
-        }
-
-        setState(() {
-          currentSpeed = fakeSpeed.toDouble();
-          speedLimit = fakeLimit;
-        });
-
-        if (fakeSpeed > fakeLimit + 5) {
-          if (!hasWarned) {
-            tts.speak("Slow down");
-            hasWarned = true;
-          }
-        } else {
-          hasWarned = false;
-        }
-
-        return;
-      }
-
-      double rawSpeed = data.speed ?? 0.0;
-      double mph = rawSpeed * 2.23694;
-
-      if (mph < 2) mph = 0;
+    _receivePort?.listen((data) {
+      if (testMode) return;
 
       setState(() {
-        currentSpeed = mph;
-        if (mph > maxSpeedMph) maxSpeedMph = mph;
+        currentSpeed = data["speed"] ?? 0.0;
+
+        if (currentSpeed > maxSpeedMph) {
+          maxSpeedMph = currentSpeed;
+        }
+
+        if (data["lat"] != null && data["lon"] != null) {
+          currentLatLng = LatLng(data["lat"], data["lon"]);
+        }
+
+        heading = data["heading"];
       });
 
-      if (rawSpeed > 0.5) {
+      if (currentSpeed > 1.0) {
         tripSeconds += 1;
-        tripDistanceMeters += rawSpeed;
+        tripDistanceMeters += (currentSpeed / 2.23694);
       }
 
-      if (data.latitude != null && data.longitude != null) {
-        currentLatLng = LatLng(data.latitude!, data.longitude!);
-      }
-
-      heading = data.heading;
-
-      if (data.latitude != null && data.longitude != null) {
-        fetchSpeedLimit(data.latitude!, data.longitude!);
+      if (currentLatLng != null) {
+        fetchSpeedLimit(currentLatLng!.latitude, currentLatLng!.longitude);
       }
 
       if (speedLimit != null) {
@@ -170,6 +127,20 @@ class _SpeedAppState extends State<SpeedApp> {
         }
       }
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      initServiceListener();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    FlutterForegroundTask.stopService();
+    super.dispose();
   }
 
   Future<void> fetchSpeedLimit(double lat, double lon) async {
@@ -340,7 +311,6 @@ class _SpeedAppState extends State<SpeedApp> {
 
                       const SizedBox(height: 20),
 
-                      // ⭐⭐⭐ TEST MODE ACTIVE BANNER ⭐⭐⭐
                       if (testMode)
                         Container(
                           margin: const EdgeInsets.only(bottom: 15),
@@ -438,3 +408,4 @@ class _SpeedAppState extends State<SpeedApp> {
     );
   }
 }
+
