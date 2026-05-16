@@ -2,11 +2,9 @@
 
 echo "🚀 Starting full auto-update..."
 
-cd ~/Android/cmdline-tools/speed_app
-
+# Add and commit changes
 echo "📁 Adding changes..."
 git add .
-
 echo "📝 Committing..."
 git commit -m "Auto update"
 
@@ -14,19 +12,23 @@ echo "⬆️ Pushing to GitHub..."
 git push
 
 echo "⏳ Waiting for GitHub Actions build to finish..."
-sleep 25
+sleep 35
 
-echo "🔍 Finding newest app-release folder..."
-LATEST=$(ls -dt ~/app-release*/ | head -1)
+echo "📥 Downloading newest APK from GitHub Actions artifact..."
 
-echo "📥 Downloading newest APK from GitHub..."
-wget -O "$LATEST/app-release.apk" \
-"https://github.com/tbnrfrags123398/Speed_app/releases/latest/download/app-release.apk"
+APK_URL="https://nightly.link/tbnrfrags123398/Speed_app/workflows/flutter-build/main/app-release.apk"
+
+wget -O latest.apk "$APK_URL"
+
+if [ ! -s latest.apk ]; then
+    echo "❌ ERROR: APK download failed. File is empty."
+    exit 1
+fi
 
 echo "🗑️ Uninstalling old version..."
 adb uninstall com.example.speed_app
 
 echo "📦 Installing new APK..."
-adb install -r "$LATEST/app-release.apk"
+adb install latest.apk
 
-echo "✅ DONE! Your app is fully updated."
+echo "✅ DONE! Your app is fully updated and installed."
