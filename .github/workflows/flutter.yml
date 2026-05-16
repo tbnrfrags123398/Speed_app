@@ -12,6 +12,25 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest tag
+        id: get_tag
+        run: |
+          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.0.0")
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Bump version
+        id: bump
+        run: |
+          OLD=${{ steps.get_tag.outputs.tag }}
+          NUM=${OLD#v}
+          MAJOR=$(echo $NUM | cut -d. -f1)
+          MINOR=$(echo $NUM | cut -d. -f2)
+          PATCH=$(echo $NUM | cut -d. -f3)
+          NEW="v$MAJOR.$MINOR.$((PATCH+1))"
+          echo "new_tag=$NEW" >> $GITHUB_OUTPUT
 
       - name: Install Flutter
         uses: subosito/flutter-action@v2
@@ -27,8 +46,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: latest
-          name: Latest Build
+          tag_name: ${{ steps.bump.outputs.new_tag }}
+          name: Release ${{ steps.bump.outputs.new_tag }}
           draft: false
           prerelease: false
           files: build/app/outputs/flutter-apk/app-release.apk
