@@ -8,7 +8,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
 import 'scooter_hud.dart';
 import 'car_hud.dart';
-import 'settings_screen.dart'; // ⭐ NEW IMPORT
+import 'settings_screen.dart'; // ⭐ SETTINGS SCREEN IMPORT
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -103,22 +103,36 @@ class _SpeedAppState extends State<SpeedApp> {
     location.changeSettings(interval: 1000);
 
     location.onLocationChanged.listen((LocationData data) {
-      // ⭐ TEST MODE OVERRIDE
+      // ⭐ TEST MODE OVERRIDE WITH VOICE ALERTS
       if (testMode) {
         fakeSpeed += 1;
         if (fakeSpeed > 60) fakeSpeed = 0;
 
+        // ⭐ Cycle fake speed limits + announce them
         if (fakeSpeed % 20 == 0) {
           if (fakeLimit == 25) fakeLimit = 35;
           else if (fakeLimit == 35) fakeLimit = 45;
           else if (fakeLimit == 45) fakeLimit = 55;
           else fakeLimit = 25;
+
+          tts.speak("Speed limit is $fakeLimit miles per hour");
         }
 
+        // ⭐ Update UI
         setState(() {
           currentSpeed = fakeSpeed.toDouble();
           speedLimit = fakeLimit;
         });
+
+        // ⭐ Fake speeding warning
+        if (fakeSpeed > fakeLimit + 5) {
+          if (!hasWarned) {
+            tts.speak("Slow down");
+            hasWarned = true;
+          }
+        } else {
+          hasWarned = false;
+        }
 
         return; // Skip real GPS
       }
@@ -368,3 +382,4 @@ class _SpeedAppState extends State<SpeedApp> {
     );
   }
 }
+
