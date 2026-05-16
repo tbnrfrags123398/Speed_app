@@ -411,4 +411,4 @@ class _SpeedAppState extends State<SpeedApp> with WidgetsBindingObserver {
       ),
     );
   }
-]
+}
