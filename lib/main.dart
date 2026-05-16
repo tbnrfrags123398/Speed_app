@@ -1,3 +1,5 @@
+// ⭐⭐⭐ FULL UPDATED FILE WITH TEST MODE ACTIVE BANNER ⭐⭐⭐
+
 import 'package:flutter/material.dart';
 import 'package:location/location.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -8,7 +10,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 
 import 'scooter_hud.dart';
 import 'car_hud.dart';
-import 'settings_screen.dart'; // ⭐ SETTINGS SCREEN IMPORT
+import 'settings_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,7 +66,6 @@ class _SpeedAppState extends State<SpeedApp> {
 
   bool batterySaver = false;
 
-  // ⭐ TEST MODE VARIABLES
   bool testMode = false;
   int fakeSpeed = 0;
   int fakeLimit = 25;
@@ -103,12 +104,10 @@ class _SpeedAppState extends State<SpeedApp> {
     location.changeSettings(interval: 1000);
 
     location.onLocationChanged.listen((LocationData data) {
-      // ⭐ TEST MODE OVERRIDE WITH VOICE ALERTS
       if (testMode) {
         fakeSpeed += 1;
         if (fakeSpeed > 60) fakeSpeed = 0;
 
-        // ⭐ Cycle fake speed limits + announce them
         if (fakeSpeed % 20 == 0) {
           if (fakeLimit == 25) fakeLimit = 35;
           else if (fakeLimit == 35) fakeLimit = 45;
@@ -118,13 +117,11 @@ class _SpeedAppState extends State<SpeedApp> {
           tts.speak("Speed limit is $fakeLimit miles per hour");
         }
 
-        // ⭐ Update UI
         setState(() {
           currentSpeed = fakeSpeed.toDouble();
           speedLimit = fakeLimit;
         });
 
-        // ⭐ Fake speeding warning
         if (fakeSpeed > fakeLimit + 5) {
           if (!hasWarned) {
             tts.speak("Slow down");
@@ -134,10 +131,9 @@ class _SpeedAppState extends State<SpeedApp> {
           hasWarned = false;
         }
 
-        return; // Skip real GPS
+        return;
       }
 
-      // ⭐ REAL GPS MODE
       double rawSpeed = data.speed ?? 0.0;
       double mph = rawSpeed * 2.23694;
 
@@ -243,7 +239,6 @@ class _SpeedAppState extends State<SpeedApp> {
           backgroundColor: Colors.black,
           body: Stack(
             children: [
-              // ⭐ SETTINGS BUTTON (TOP LEFT)
               Positioned(
                 top: 40,
                 left: 20,
@@ -277,7 +272,6 @@ class _SpeedAppState extends State<SpeedApp> {
                 ),
               ),
 
-              // ⭐ MAIN HUD UI
               GestureDetector(
                 onHorizontalDragEnd: (details) {
                   if (details.primaryVelocity! < 0) {
@@ -346,30 +340,92 @@ class _SpeedAppState extends State<SpeedApp> {
 
                       const SizedBox(height: 20),
 
-                      Expanded(
-                        child: mode == "bike"
-                            ? ScooterHud(
-                                currentSpeed: currentSpeed,
-                                speedLimit: speedLimit,
-                                currentLatLng: currentLatLng,
-                                heading: heading,
-                                tripDistanceMiles: tripDistanceMiles,
-                                tripSeconds: tripSeconds,
-                                avgSpeedMph: avgSpeedMph,
-                                maxSpeedMph: maxSpeedMph,
-                                isNight: isNight,
-                                batterySaver: batterySaver,
-                                onResetTrip: _resetTrip,
-                                onToggleBatterySaver: () {
-                                  setState(() {
-                                    batterySaver = !batterySaver;
-                                  });
-                                },
-                              )
-                            : CarHud(
-                                currentSpeed: currentSpeed,
-                                speedLimit: speedLimit,
+                      // ⭐⭐⭐ TEST MODE ACTIVE BANNER ⭐⭐⭐
+                      if (testMode)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 15),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 8, horizontal: 20),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.25),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.orange.withOpacity(0.7),
+                                blurRadius: 15,
+                                spreadRadius: 2,
                               ),
+                            ],
+                          ),
+                          child: const Text(
+                            "TEST MODE ACTIVE",
+                            style: TextStyle(
+                              color: Colors.orange,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                        ),
+
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(top: 10),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Text(
+                                      "TEST MODE",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 15),
+                                    Switch(
+                                      value: testMode,
+                                      activeColor: Colors.orange,
+                                      onChanged: (value) {
+                                        setState(() => testMode = value);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              SizedBox(
+                                height: MediaQuery.of(context).size.height * 0.75,
+                                child: mode == "bike"
+                                    ? ScooterHud(
+                                        currentSpeed: currentSpeed,
+                                        speedLimit: speedLimit,
+                                        currentLatLng: currentLatLng,
+                                        heading: heading,
+                                        tripDistanceMiles: tripDistanceMiles,
+                                        tripSeconds: tripSeconds,
+                                        avgSpeedMph: avgSpeedMph,
+                                        maxSpeedMph: maxSpeedMph,
+                                        isNight: isNight,
+                                        batterySaver: batterySaver,
+                                        onResetTrip: _resetTrip,
+                                        onToggleBatterySaver: () {
+                                          setState(() {
+                                            batterySaver = !batterySaver;
+                                          });
+                                        },
+                                      )
+                                    : CarHud(
+                                        currentSpeed: currentSpeed,
+                                        speedLimit: speedLimit,
+                                      ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -382,4 +438,3 @@ class _SpeedAppState extends State<SpeedApp> {
     );
   }
 }
-
