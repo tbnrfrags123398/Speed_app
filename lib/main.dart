@@ -13,7 +13,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize foreground service
-  await FlutterForegroundTask.init(
+   FlutterForegroundTask.init(
     androidNotificationOptions: AndroidNotificationOptions(
       channelId: 'speed_app_channel',
       channelName: 'Speed App Background Service',
