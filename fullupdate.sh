@@ -16,7 +16,7 @@ sleep 35
 
 echo "📥 Downloading newest APK from GitHub Actions artifact..."
 
-APK_URL="https://nightly.link/tbnrfrags123398/Speed_app/workflows/flutter/main/app-release.apk"
+APK_URL="https://nightly.link/tbnrfrags123398/Speed_app/workflows/build/main/app-release.apk"
 
 wget -O latest.apk "$APK_URL"
 
