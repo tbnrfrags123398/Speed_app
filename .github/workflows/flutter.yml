@@ -1,11 +1,8 @@
-name: Build Flutter APK
-
-permissions:
-  contents: write
+name: Build Android APK
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -15,44 +12,29 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with:
-          fetch-depth: 0
-
-      - name: Get latest tag
-        id: get_tag
-        run: |
-          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.0.0")
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-
-      - name: Bump version
-        id: bump
-        run: |
-          OLD=${{ steps.get_tag.outputs.tag }}
-          NUM=${OLD#v}
-          MAJOR=$(echo $NUM | cut -d. -f1)
-          MINOR=$(echo $NUM | cut -d. -f2)
-          PATCH=$(echo $NUM | cut -d. -f3)
-          NEW="v$MAJOR.$MINOR.$((PATCH+1))"
-          echo "new_tag=$NEW" >> $GITHUB_OUTPUT
+          distribution: temurin
+          java-version: 17
 
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.22.3"
+          flutter-version: '3.22.3'
+          cache: true
 
-      - name: Flutter pub get
+      - name: Get dependencies
         run: flutter pub get
 
       - name: Build release APK
         run: flutter build apk --release
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Upload APK to Release
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.bump.outputs.new_tag }}
-          name: Release ${{ steps.bump.outputs.new_tag }}
-          draft: false
-          prerelease: false
+          tag_name: v1.0.${{ github.run_number }}
           files: build/app/outputs/flutter-apk/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
