@@ -7,13 +7,8 @@ class GpsTaskHandler extends TaskHandler {
 
   @override
   Future<void> onStart(DateTime timestamp, SendPort? sendPort) async {
-    // Configure GPS update interval
-    location.changeSettings(
-      interval: 1000, // 1 second
-      accuracy: LocationAccuracy.high,
-    );
+    location.changeSettings(interval: 1000, accuracy: LocationAccuracy.high);
 
-    // Ensure permissions
     bool serviceEnabled = await location.serviceEnabled();
     if (!serviceEnabled) {
       serviceEnabled = await location.requestService();
@@ -24,7 +19,6 @@ class GpsTaskHandler extends TaskHandler {
       permission = await location.requestPermission();
     }
 
-    // Start listening to GPS
     location.onLocationChanged.listen((data) {
       final speedMps = data.speed ?? 0.0;
       final mph = speedMps * 2.23694;
@@ -39,13 +33,12 @@ class GpsTaskHandler extends TaskHandler {
   }
 
   @override
-  Future<void> onEvent(DateTime timestamp, SendPort? sendPort) async {
-    // Not used, but required by interface
-  }
+  Future<void> onEvent(DateTime timestamp, SendPort? sendPort) async {}
 
   @override
-  Future<void> onDestroy(DateTime timestamp) async {
-    // Cleanup if needed
-  }
+  Future<void> onRepeatEvent(DateTime timestamp, SendPort? sendPort) async {}
+
+  @override
+  Future<void> onDestroy(DateTime timestamp, SendPort? sendPort) async {}
 }
 

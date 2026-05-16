@@ -11,6 +11,11 @@ import 'scooter_hud.dart';
 import 'car_hud.dart';
 import 'settings_screen.dart';
 
+@pragma('vm:entry-point')
+void startCallback() {
+  FlutterForegroundTask.setTaskHandler(GpsTaskHandler());
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -33,8 +38,6 @@ void main() async {
       allowWifiLock: true,
     ),
   );
-
-  FlutterForegroundTask.registerTaskHandler(GpsTaskHandler());
 
   runApp(const SpeedApp());
 }
@@ -84,6 +87,7 @@ class _SpeedAppState extends State<SpeedApp> with WidgetsBindingObserver {
     await FlutterForegroundTask.startService(
       notificationTitle: "Speed HUD Running",
       notificationText: "GPS Active",
+      callback: startCallback,
     );
   }
 
@@ -407,5 +411,4 @@ class _SpeedAppState extends State<SpeedApp> with WidgetsBindingObserver {
       ),
     );
   }
-}
-
+]
