@@ -13,11 +13,19 @@ import 'car_hud.dart';
 import 'settings_screen.dart';
 import 'permission_page.dart';
 
+
+// =============================================================
+// ⭐ FOREGROUND SERVICE ENTRY POINT
+// =============================================================
 @pragma('vm:entry-point')
 void startCallback() {
   FlutterForegroundTask.setTaskHandler(GpsTaskHandler());
 }
 
+
+// =============================================================
+// ⭐ MAIN APP INITIALIZATION
+// =============================================================
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -44,6 +52,10 @@ void main() async {
   runApp(const SpeedApp());
 }
 
+
+// =============================================================
+// ⭐ ROOT APP WIDGET
+// =============================================================
 class SpeedApp extends StatelessWidget {
   const SpeedApp({super.key});
 
@@ -60,7 +72,10 @@ class SpeedApp extends StatelessWidget {
   }
 }
 
-/// Wrapper that starts the foreground service ONLY after permissions are granted
+
+// =============================================================
+// ⭐ HOME WRAPPER — STARTS FOREGROUND SERVICE
+// =============================================================
 class HomeWrapper extends StatefulWidget {
   const HomeWrapper({super.key});
 
@@ -78,7 +93,6 @@ class _HomeWrapperState extends State<HomeWrapper> {
   }
 
   Future<void> startServiceSafely() async {
-    // Ensure permissions are granted
     if (await Permission.location.isGranted &&
         await Permission.locationWhenInUse.isGranted) {
       await FlutterForegroundTask.startService(
@@ -105,7 +119,10 @@ class _HomeWrapperState extends State<HomeWrapper> {
   }
 }
 
-/// Your original HUD screen moved into its own widget
+
+// =============================================================
+// ⭐ MAIN HOME SCREEN (HUD + GPS LOGIC)
+// =============================================================
 class SpeedHome extends StatefulWidget {
   const SpeedHome({super.key});
 
@@ -113,45 +130,113 @@ class SpeedHome extends StatefulWidget {
   State<SpeedHome> createState() => _SpeedHomeState();
 }
 
-class _SpeedHomeState extends State<SpeedHome> with WidgetsBindingObserver {
+class _SpeedHomeState extends State<SpeedHome>
+    with WidgetsBindingObserver, TickerProviderStateMixin {
+
+  // TTS
   final FlutterTts tts = FlutterTts();
 
+  // GPS + Speed
   double currentSpeed = 0.0;
   int? speedLimit;
-
-  bool hasWarned = false;
-  int? lastAnnouncedLimit;
-
-  String mode = "bike";
-
   LatLng? currentLatLng;
   double? heading;
 
+  // Trip Stats
   double tripDistanceMeters = 0.0;
   int tripSeconds = 0;
   double maxSpeedMph = 0.0;
 
+  // Modes
   bool batterySaver = false;
-
   bool testMode = false;
-  int fakeSpeed = 0;
-  int fakeLimit = 25;
+  String mode = "bike";
 
+  // Foreground service
   ReceivePort? _receivePort;
+
+  // =============================================================
+  // ⭐ GPS LOST SYSTEM VARIABLES
+  // =============================================================
+  bool gpsLost = false;
+  DateTime? gpsLastSeen;
+  bool gpsLostAnnounced = false;
+  bool gpsRestoredAnnounced = false;
+
+  // Fade animation (fade-in once → solid → fade-out)
+  late AnimationController gpsFadeController;
+  late Animation<double> gpsFade;
+
+  // =============================================================
+  // ⭐ GPS ICON PULSE + SCANNING BARS
+  // =============================================================
+  late AnimationController gpsPulseController;
+  late Animation<double> gpsPulse;
+
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // Pulse animation for GPS icon
+    gpsPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+
+    gpsPulse = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: gpsPulseController, curve: Curves.easeInOut),
+    );
+
+    // Fade animation for GPS LOST banner
+    gpsFadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2500),
+    );
+
+    gpsFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: gpsFadeController, curve: Curves.easeInOut),
+    );
+
     initServiceListener();
   }
 
+
+  @override
+  void dispose() {
+    gpsPulseController.dispose();
+    gpsFadeController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    FlutterForegroundTask.stopService();
+    super.dispose();
+  }
+
+
+  // =============================================================
+  // ⭐ GPS SIGNAL BARS (ALWAYS 4 WHEN FIXED)
+  // =============================================================
+  int get gpsBars {
+    if (currentLatLng == null) return 0;
+    return 4;
+  }
+
+
+  // =============================================================
+  // ⭐ FOREGROUND SERVICE LISTENER
+  // =============================================================
   void initServiceListener() {
     _receivePort = FlutterForegroundTask.receivePort;
 
     _receivePort?.listen((data) {
       if (testMode) return;
 
+      // Update GPS timestamp
+      if (data["lat"] != null && data["lon"] != null) {
+        gpsLastSeen = DateTime.now();
+      }
+
+      // Update speed
       setState(() {
         currentSpeed = data["speed"] ?? 0.0;
 
@@ -166,42 +251,73 @@ class _SpeedHomeState extends State<SpeedHome> with WidgetsBindingObserver {
         heading = data["heading"];
       });
 
+      // Trip stats
       if (currentSpeed > 1.0) {
         tripSeconds += 1;
         tripDistanceMeters += (currentSpeed / 2.23694);
       }
 
+      // Speed limit fetch
       if (currentLatLng != null) {
         fetchSpeedLimit(currentLatLng!.latitude, currentLatLng!.longitude);
       }
 
-      if (speedLimit != null) {
-        if (currentSpeed > speedLimit! + 5) {
-          if (!hasWarned) {
-            tts.speak("Slow down");
-            hasWarned = true;
-          }
-        } else {
-          hasWarned = false;
-        }
-      }
+      // GPS LOST detection
+      handleGpsLostLogic();
     });
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      initServiceListener();
+
+  // =============================================================
+  // ⭐ GPS LOST LOGIC (2-second delay)
+  // =============================================================
+  void handleGpsLostLogic() {
+    if (batterySaver) {
+      gpsLost = false;
+      gpsFadeController.reset();
+      return;
+    }
+
+    final now = DateTime.now();
+
+    // If GPS hasn't been seen for 2 seconds → LOST
+    if (gpsLastSeen == null ||
+        now.difference(gpsLastSeen!).inMilliseconds > 2000) {
+
+      if (!gpsLost) {
+        gpsLost = true;
+        gpsLostAnnounced = false;
+        gpsRestoredAnnounced = false;
+
+        // Fade in once
+        gpsFadeController.forward(from: 0.0);
+      }
+
+      if (!gpsLostAnnounced) {
+        gpsLostAnnounced = true;
+        tts.speak("GPS signal lost");
+      }
+
+    } else {
+      // GPS restored
+      if (gpsLost) {
+        gpsLost = false;
+
+        if (!gpsRestoredAnnounced) {
+          gpsRestoredAnnounced = true;
+          tts.speak("GPS signal restored");
+        }
+
+        // Fade out smoothly
+        gpsFadeController.reverse();
+      }
     }
   }
 
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    FlutterForegroundTask.stopService();
-    super.dispose();
-  }
 
+  // =============================================================
+  // ⭐ FETCH SPEED LIMIT FROM OSM
+  // =============================================================
   Future<void> fetchSpeedLimit(double lat, double lon) async {
     final url =
         "https://overpass-api.de/api/interpreter?data=[out:json];way(around:20,$lat,$lon)[\"maxspeed\"];out;";
@@ -226,13 +342,6 @@ class _SpeedHomeState extends State<SpeedHome> with WidgetsBindingObserver {
             }
 
             setState(() => speedLimit = mphLimit);
-
-            if (lastAnnouncedLimit == null ||
-                mphLimit != lastAnnouncedLimit) {
-              tts.speak("Speed limit is $mphLimit miles per hour");
-            }
-
-            lastAnnouncedLimit = mphLimit;
           }
         }
       }
@@ -240,231 +349,153 @@ class _SpeedHomeState extends State<SpeedHome> with WidgetsBindingObserver {
       print("OSM speed limit error: $e");
     }
   }
-
-  void _resetTrip() {
-    setState(() {
-      tripDistanceMeters = 0.0;
-      tripSeconds = 0;
-      maxSpeedMph = 0.0;
-    });
-  }
-
-  double get tripDistanceMiles => tripDistanceMeters / 1609.34;
-
-  double get avgSpeedMph {
-    if (tripSeconds == 0) return 0.0;
-    final hours = tripSeconds / 3600.0;
-    return tripDistanceMiles / hours;
-  }
-
+  // =============================================================
+  // ⭐ BUILD UI
+  // =============================================================
   @override
   Widget build(BuildContext context) {
-    final hour = DateTime.now().hour;
-    final bool isNight = hour < 6 || hour >= 19;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
 
-    return WithForegroundTask(
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: Scaffold(
-          backgroundColor: Colors.black,
-          body: Stack(
-            children: [
-              Positioned(
-                top: 40,
-                left: 20,
-                child: GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => SettingsScreen(
-                          testMode: testMode,
-                          batterySaver: batterySaver,
-                          onToggleTestMode: () {
-                            setState(() => testMode = !testMode);
-                          },
-                          onToggleBatterySaver: () {
-                            setState(() {
-                              batterySaver = !batterySaver;
-                            });
-                          },
-                        ),
-                      ),
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade800,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.settings,
-                        color: Colors.white, size: 26),
+          // =============================================================
+          // ⭐ MAIN HUD (BIKE OR CAR)
+          // =============================================================
+          Positioned.fill(
+            child: mode == "bike"
+                ? ScooterHUD(
+                    speed: currentSpeed,
+                    speedLimit: speedLimit,
+                    gpsBars: gpsBars,
+                    heading: heading,
+                    tripDistanceMeters: tripDistanceMeters,
+                    tripSeconds: tripSeconds,
+                    maxSpeedMph: maxSpeedMph,
+                  )
+                : CarHUD(
+                    speed: currentSpeed,
+                    speedLimit: speedLimit,
+                    gpsBars: gpsBars,
+                    heading: heading,
+                    tripDistanceMeters: tripDistanceMeters,
+                    tripSeconds: tripSeconds,
+                    maxSpeedMph: maxSpeedMph,
                   ),
-                ),
-              ),
+          ),
 
-              GestureDetector(
-                onHorizontalDragEnd: (details) {
-                  if (details.primaryVelocity! < 0) {
-                    setState(() => mode = "car");
-                  } else {
-                    setState(() => mode = "bike");
-                  }
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  color: mode == "bike"
-                      ? (isNight
-                          ? Colors.blueGrey.shade900
-                          : Colors.blue.withOpacity(0.15))
-                      : (isNight
-                          ? Colors.red.shade900
-                          : Colors.red.withOpacity(0.15)),
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 40),
+          // =============================================================
+          // ⭐ GPS PULSING ICON (TOP RIGHT)
+          // =============================================================
+          Positioned(
+            top: 40,
+            right: 20,
+            child: AnimatedBuilder(
+              animation: gpsPulseController,
+              builder: (context, child) {
+                return Opacity(
+                  opacity: gpsPulse.value,
+                  child: Icon(
+                    Icons.gps_fixed,
+                    size: 32,
+                    color: gpsLost ? Colors.red : Colors.greenAccent,
+                  ),
+                );
+              },
+            ),
+          ),
 
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 10, horizontal: 20),
-                        decoration: BoxDecoration(
-                          color: mode == "bike"
-                              ? Colors.blue.withOpacity(0.25)
-                              : Colors.red.withOpacity(0.25),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: mode == "bike"
-                                  ? Colors.blue.withOpacity(0.5)
-                                  : Colors.red.withOpacity(0.5),
-                              blurRadius: 20,
-                              spreadRadius: 2,
-                            )
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              mode == "bike"
-                                  ? Icons.pedal_bike
-                                  : Icons.directions_car,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              mode == "bike"
-                                  ? "BIKE MODE"
-                                  : "CAR MODE",
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+          // =============================================================
+          // ⭐ ANIMATED GPS SCANNING BARS (TOP RIGHT UNDER ICON)
+          // =============================================================
+          Positioned(
+            top: 80,
+            right: 20,
+            child: Row(
+              children: List.generate(4, (i) {
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  width: 6,
+                  height: (i + 1) * 10,
+                  decoration: BoxDecoration(
+                    color: gpsLost ? Colors.red : Colors.greenAccent,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                );
+              }),
+            ),
+          ),
 
-                      const SizedBox(height: 20),
-
-                      if (testMode)
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 15),
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 8, horizontal: 20),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.withOpacity(0.25),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.orange.withOpacity(0.7),
-                                blurRadius: 15,
-                                spreadRadius: 2,
-                              ),
-                            ],
-                          ),
-                          child: const Text(
-                            "TEST MODE ACTIVE",
-                            style: TextStyle(
-                              color: Colors.orange,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                        ),
-
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(top: 10),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Text(
-                                      "TEST MODE",
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 15),
-                                    Switch(
-                                      value: testMode,
-                                      activeColor: Colors.orange,
-                                      onChanged: (value) {
-                                        setState(() => testMode = value);
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              SizedBox(
-                                height: MediaQuery.of(context).size.height * 0.75,
-                                child: mode == "bike"
-                                    ? ScooterHud(
-                                        currentSpeed: currentSpeed,
-                                        speedLimit: speedLimit,
-                                        currentLatLng: currentLatLng,
-                                        heading: heading,
-                                        tripDistanceMiles: tripDistanceMiles,
-                                        tripSeconds: tripSeconds,
-                                        avgSpeedMph: avgSpeedMph,
-                                        maxSpeedMph: maxSpeedMph,
-                                        isNight: isNight,
-                                        batterySaver: batterySaver,
-                                        onResetTrip: _resetTrip,
-                                        onToggleBatterySaver: () {
-                                          setState(() {
-                                            batterySaver = !batterySaver;
-                                          });
-                                        },
-                                      )
-                                    : CarHud(
-                                        currentSpeed: currentSpeed,
-                                        speedLimit: speedLimit,
-                                      ),
-                              ),
-                            ],
-                          ),
-                        ),
+          // =============================================================
+          // ⭐ CENTER NEON GPS LOST BANNER (FADE IN ONCE → SOLID → FADE OUT)
+          // =============================================================
+          if (gpsLost && !batterySaver)
+            Center(
+              child: FadeTransition(
+                opacity: gpsFade,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.85),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.red.withOpacity(0.8),
+                        blurRadius: 25,
+                        spreadRadius: 5,
                       ),
                     ],
                   ),
+                  child: const Text(
+                    "⚠ NO GPS — SPEED INACCURATE",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
                 ),
               ),
-            ],
+            ),
+
+          // =============================================================
+          // ⭐ SETTINGS BUTTON (TOP LEFT)
+          // =============================================================
+          Positioned(
+            top: 40,
+            left: 20,
+            child: GestureDetector(
+              onTap: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SettingsScreen(
+                      batterySaver: batterySaver,
+                      mode: mode,
+                      testMode: testMode,
+                    ),
+                  ),
+                );
+
+                if (result != null) {
+                  setState(() {
+                    batterySaver = result["batterySaver"];
+                    mode = result["mode"];
+                    testMode = result["testMode"];
+                  });
+                }
+              },
+              child: const Icon(
+                Icons.settings,
+                size: 34,
+                color: Colors.white,
+              ),
+            ),
           ),
-        ),
+
+        ],
       ),
     );
   }
