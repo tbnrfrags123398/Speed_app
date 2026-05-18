@@ -463,35 +463,36 @@ class _SpeedHomeState extends State<SpeedHome>
           // =============================================================
           // ⭐ SETTINGS BUTTON (TOP LEFT)
           // =============================================================
-          Positioned(
-            top: 40,
-            left: 20,
-            child: GestureDetector(
-              onTap: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => SettingsScreen(
-                      batterySaver: batterySaver,
-                      testMode: testMode,
-                    ),
-                  ),
-                );
+top: 40,
+left: 20,
+child: GestureDetector(
+  onTap: () async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SettingsScreen(
+          testMode: testMode,
+          batterySaver: batterySaver,
+          onToggleTestMode: () {},
+          onToggleBatterySaver: () {},
+        ),
+      ),
+    );
 
-                if (result != null) {
-                  setState(() {
-                    batterySaver = result["batterySaver"];
-                    mode = result["mode"];
-                    testMode = result["testMode"];
-                  });
-                }
-              },
-              child: const Icon(
-                Icons.settings,
-                size: 34,
-                color: Colors.white,
-              ),
-            ),
+    if (result != null) {
+      setState(() {
+        batterySaver = result["batterySaver"];
+        mode = result["mode"];
+        testMode = result["testMode"];
+      });
+    }
+  },
+  child: const Icon(
+    Icons.settings,
+    size: 34,
+    color: Colors.white,
+  ),
+),
           ),
 
         ],
