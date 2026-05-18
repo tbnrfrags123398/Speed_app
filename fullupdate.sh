@@ -29,7 +29,7 @@ fi
 echo "⏳ Waiting for GitHub Actions build to finish and artifact to be ready..."
 
 # Poll nightly.link until it returns 200 or timeout
-MAX_TRIES=15
+MAX_TRIES=45
 SLEEP_SECONDS=15
 TRY=1
 HTTP_CODE=0
