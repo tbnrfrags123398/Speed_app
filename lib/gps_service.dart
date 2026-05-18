@@ -41,4 +41,3 @@ class GpsTaskHandler extends TaskHandler {
   @override
   Future<void> onDestroy(DateTime timestamp, SendPort? sendPort) async {}
 }
-
