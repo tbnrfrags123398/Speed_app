@@ -434,8 +434,7 @@ class _SpeedHomeState extends State<SpeedHome>
               child: FadeTransition(
                 opacity: gpsFade,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
                   decoration: BoxDecoration(
                     color: Colors.red.withOpacity(0.85),
                     borderRadius: BorderRadius.circular(8),
@@ -463,41 +462,40 @@ class _SpeedHomeState extends State<SpeedHome>
           // =============================================================
           // ⭐ SETTINGS BUTTON (TOP LEFT)
           // =============================================================
-top: 40,
-left: 20,
-child: GestureDetector(
-  onTap: () async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => SettingsScreen(
-          testMode: testMode,
-          batterySaver: batterySaver,
-          onToggleTestMode: () {},
-          onToggleBatterySaver: () {},
-        ),
-      ),
-    );
+          Positioned(
+            top: 40,
+            left: 20,
+            child: GestureDetector(
+              onTap: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SettingsScreen(
+                      testMode: testMode,
+                      batterySaver: batterySaver,
+                      onToggleTestMode: () {},
+                      onToggleBatterySaver: () {},
+                    ),
+                  ),
+                );
 
-    if (result != null) {
-      setState(() {
-        batterySaver = result["batterySaver"];
-        mode = result["mode"];
-        testMode = result["testMode"];
-      });
-    }
-  },
-  child: const Icon(
-    Icons.settings,
-    size: 34,
-    color: Colors.white,
-  ),
-),
+                if (result != null) {
+                  setState(() {
+                    batterySaver = result["batterySaver"];
+                    mode = result["mode"];
+                    testMode = result["testMode"];
+                  });
+                }
+              },
+              child: const Icon(
+                Icons.settings,
+                size: 34,
+                color: Colors.white,
+              ),
+            ),
           ),
-
         ],
       ),
     );
   }
 }
-
