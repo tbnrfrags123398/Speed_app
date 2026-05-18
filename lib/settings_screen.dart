@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 class SettingsScreen extends StatefulWidget {
   final bool testMode;
   final bool batterySaver;
-  final String mode;
   final String mapStyle; // light / dark / satellite
   final bool voiceAlerts;
 
@@ -11,7 +10,6 @@ class SettingsScreen extends StatefulWidget {
     super.key,
     required this.testMode,
     required this.batterySaver,
-    required this.mode,
     required this.mapStyle,
     required this.voiceAlerts,
   });
@@ -23,7 +21,6 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   late bool testMode;
   late bool batterySaver;
-  late String mode;
   late String mapStyle;
   late bool voiceAlerts;
 
@@ -32,7 +29,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     testMode = widget.testMode;
     batterySaver = widget.batterySaver;
-    mode = widget.mode;
     mapStyle = widget.mapStyle;
     voiceAlerts = widget.voiceAlerts;
   }
@@ -41,7 +37,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     Navigator.pop(context, {
       "testMode": testMode,
       "batterySaver": batterySaver,
-      "mode": mode,
       "mapStyle": mapStyle,
       "voiceAlerts": voiceAlerts,
     });
@@ -64,46 +59,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: _saveAndExit,
             child: const Text(
               "SAVE",
-              style: TextStyle(color: Colors.orange),
+              style: TextStyle(color: Colors.cyanAccent, fontSize: 16),
             ),
           ),
         ],
       ),
       body: ListView(
         children: [
-          // ⭐ MODE SELECTOR
-          ListTile(
-            title: const Text("Mode", style: TextStyle(color: Colors.white)),
-            subtitle: Text(
-              mode == "bike" ? "Bike HUD" : "Car HUD",
-              style: const TextStyle(color: Colors.white70),
-            ),
-            trailing: DropdownButton<String>(
-              dropdownColor: Colors.black,
-              value: mode,
-              items: const [
-                DropdownMenuItem(
-                  value: "bike",
-                  child: Text("Bike", style: TextStyle(color: Colors.white)),
-                ),
-                DropdownMenuItem(
-                  value: "car",
-                  child: Text("Car", style: TextStyle(color: Colors.white)),
-                ),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() => mode = value);
-              },
-            ),
-          ),
-
-          const Divider(color: Colors.white24),
+          const SizedBox(height: 10),
 
           // ⭐ TEST MODE
           SwitchListTile(
-            title: const Text("Test Mode",
-                style: TextStyle(color: Colors.white)),
+            title: const Text(
+              "Test Mode",
+              style: TextStyle(color: Colors.white),
+            ),
             subtitle: const Text(
               "Simulate speed + speed limits indoors",
               style: TextStyle(color: Colors.white70),
@@ -112,13 +82,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onChanged: (value) {
               setState(() => testMode = value);
             },
-            activeColor: Colors.orange,
+            activeColor: Colors.cyanAccent,
           ),
 
           // ⭐ BATTERY SAVER
           SwitchListTile(
-            title: const Text("Battery Saver",
-                style: TextStyle(color: Colors.white)),
+            title: const Text(
+              "Battery Saver",
+              style: TextStyle(color: Colors.white),
+            ),
             subtitle: const Text(
               "Reduce animations + voice alerts",
               style: TextStyle(color: Colors.white70),
@@ -127,15 +99,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onChanged: (value) {
               setState(() => batterySaver = value);
             },
-            activeColor: Colors.green,
+            activeColor: Colors.greenAccent,
           ),
 
           const Divider(color: Colors.white24),
 
           // ⭐ MAP STYLE
           ListTile(
-            title: const Text("Map Style",
-                style: TextStyle(color: Colors.white)),
+            title: const Text(
+              "Map Style",
+              style: TextStyle(color: Colors.white),
+            ),
             subtitle: Text(
               mapStyle == "light"
                   ? "Light"
@@ -169,10 +143,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
 
+          const Divider(color: Colors.white24),
+
           // ⭐ VOICE ALERTS
           SwitchListTile(
-            title: const Text("Voice Alerts",
-                style: TextStyle(color: Colors.white)),
+            title: const Text(
+              "Voice Alerts",
+              style: TextStyle(color: Colors.white),
+            ),
             subtitle: const Text(
               "Speeding, speed limit changes, GPS lost/restored",
               style: TextStyle(color: Colors.white70),
@@ -181,7 +159,84 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onChanged: (value) {
               setState(() => voiceAlerts = value);
             },
-            activeColor: Colors.blueAccent,
+            activeColor: Colors.orangeAccent,
+          ),
+
+          const SizedBox(height: 20),
+
+          // ⭐ HUD COLOR PREVIEW (BASED ON SWIPE MODE)
+          Center(
+            child: Column(
+              children: [
+                const Text(
+                  "HUD Color Preview",
+                  style: TextStyle(color: Colors.white70, fontSize: 16),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  width: 140,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    gradient: const LinearGradient(
+                      colors: [
+                        Colors.cyanAccent,
+                        Colors.blueAccent,
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.cyanAccent.withOpacity(0.6),
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Text(
+                      "Bike HUD",
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  width: 140,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    gradient: const LinearGradient(
+                      colors: [
+                        Colors.redAccent,
+                        Colors.orangeAccent,
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.redAccent,
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: Text(
+                      "Car HUD",
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 40),
+              ],
+            ),
           ),
         ],
       ),

@@ -145,8 +145,8 @@ class _SpeedHomeState extends State<SpeedHome>
   // Modes / Settings
   bool batterySaver = false;
   bool testMode = false;
-  String mode = "bike";
-  String mapStyle = "dark"; // light / dark / satellite
+  String mode = "bike"; // controlled ONLY by swipe
+  String mapStyle = "dark";
   bool voiceAlerts = true;
 
   // Foreground service
@@ -169,7 +169,7 @@ class _SpeedHomeState extends State<SpeedHome>
   // Test mode simulation
   Timer? _testTimer;
   int _fakeSpeed = 0;
-  int _fakeDir = 1; // 1 = up, -1 = down
+  int _fakeDir = 1;
   int _fakeLimitIndex = 0;
   final List<int> _fakeLimits = [25, 35, 45, 55];
 
@@ -180,7 +180,6 @@ class _SpeedHomeState extends State<SpeedHome>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // Pulse animation for GPS icon
     gpsPulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -190,7 +189,6 @@ class _SpeedHomeState extends State<SpeedHome>
       CurvedAnimation(parent: gpsPulseController, curve: Curves.easeInOut),
     );
 
-    // Fade animation for GPS LOST banner
     gpsFadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2500),
@@ -214,7 +212,7 @@ class _SpeedHomeState extends State<SpeedHome>
   }
 
   // =============================================================
-  // ⭐ GPS SIGNAL BARS (ALWAYS 4 WHEN FIXED)
+  // ⭐ GPS SIGNAL BARS
   // =============================================================
   int get gpsBars {
     if (currentLatLng == null && !testMode) return 0;
@@ -228,9 +226,8 @@ class _SpeedHomeState extends State<SpeedHome>
     _receivePort = FlutterForegroundTask.receivePort;
 
     _receivePort?.listen((data) {
-      if (testMode) return; // ignore real GPS in test mode
+      if (testMode) return;
 
-      // Update GPS timestamp
       if (data["lat"] != null && data["lon"] != null) {
         gpsLastSeen = DateTime.now();
       }
@@ -249,21 +246,16 @@ class _SpeedHomeState extends State<SpeedHome>
         heading = data["heading"];
       });
 
-      // Trip stats
       if (currentSpeed > 1.0) {
         tripSeconds += 1;
         tripDistanceMeters += (currentSpeed / 2.23694);
       }
 
-      // Speed limit fetch
       if (currentLatLng != null && !batterySaver) {
         fetchSpeedLimit(currentLatLng!.latitude, currentLatLng!.longitude);
       }
 
-      // GPS LOST detection
       handleGpsLostLogic();
-
-      // Voice alerts (speeding + limit change)
       _handleVoiceAlerts();
     });
   }
@@ -282,7 +274,6 @@ class _SpeedHomeState extends State<SpeedHome>
 
     _testTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       setState(() {
-        // ramp 0 → 45 → 0
         if (_fakeDir == 1) {
           _fakeSpeed += 5;
           if (_fakeSpeed >= 45) {
@@ -294,7 +285,6 @@ class _SpeedHomeState extends State<SpeedHome>
           if (_fakeSpeed <= 0) {
             _fakeSpeed = 0;
             _fakeDir = 1;
-            // cycle speed limit when we hit 0 again
             _fakeLimitIndex = (_fakeLimitIndex + 1) % _fakeLimits.length;
             speedLimit = _fakeLimits[_fakeLimitIndex];
           }
@@ -306,11 +296,9 @@ class _SpeedHomeState extends State<SpeedHome>
           maxSpeedMph = currentSpeed;
         }
 
-        // fake GPS OK but stationary
         gpsLost = false;
         gpsLastSeen = DateTime.now();
 
-        // trip stats
         if (currentSpeed > 1.0) {
           tripSeconds += 1;
           tripDistanceMeters += (currentSpeed / 2.23694);
@@ -328,8 +316,8 @@ class _SpeedHomeState extends State<SpeedHome>
   }
 
   // =============================================================
-  // ⭐ GPS LOST LOGIC (2-second delay)
-// =============================================================
+  // ⭐ GPS LOST LOGIC
+  // =============================================================
   void handleGpsLostLogic() {
     if (batterySaver) {
       gpsLost = false;
@@ -368,26 +356,24 @@ class _SpeedHomeState extends State<SpeedHome>
   }
 
   // =============================================================
-  // ⭐ VOICE ALERTS (SPEEDING + LIMIT CHANGE)
-// =============================================================
+  // ⭐ VOICE ALERTS
+  // =============================================================
   void _handleVoiceAlerts() {
     if (!voiceAlerts || batterySaver) return;
     if (speedLimit == null) return;
 
-    // Speed limit change
     if (_lastAnnouncedSpeedLimit != speedLimit) {
       _lastAnnouncedSpeedLimit = speedLimit;
       tts.speak("Speed limit ${speedLimit} miles per hour");
     }
 
-    // Speeding alert (5 mph over)
     if (currentSpeed > (speedLimit! + 5)) {
       tts.speak("Slow down");
     }
   }
 
   // =============================================================
-  // ⭐ FETCH SPEED LIMIT FROM OSM
+  // ⭐ FETCH SPEED LIMIT
   // =============================================================
   Future<void> fetchSpeedLimit(double lat, double lon) async {
     final url =
@@ -422,13 +408,12 @@ class _SpeedHomeState extends State<SpeedHome>
   }
 
   // =============================================================
-  // ⭐ APPLY SETTINGS CHANGES
+  // ⭐ APPLY SETTINGS
   // =============================================================
   void _applySettings(Map result) {
     setState(() {
       testMode = result["testMode"] ?? testMode;
       batterySaver = result["batterySaver"] ?? batterySaver;
-      mode = result["mode"] ?? mode;
       mapStyle = result["mapStyle"] ?? mapStyle;
       voiceAlerts = result["voiceAlerts"] ?? voiceAlerts;
     });
@@ -449,30 +434,39 @@ class _SpeedHomeState extends State<SpeedHome>
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // ⭐ MAIN HUD (BIKE OR CAR)
+          // ⭐ SWIPE LEFT/RIGHT TO SWITCH MODES
           Positioned.fill(
-            child: mode == "bike"
-                ? ScooterHUD(
-                    speed: currentSpeed,
-                    speedLimit: speedLimit,
-                    gpsBars: gpsBars,
-                    heading: heading,
-                    tripDistanceMeters: tripDistanceMeters,
-                    tripSeconds: tripSeconds,
-                    maxSpeedMph: maxSpeedMph,
-                  )
-                : CarHUD(
-                    speed: currentSpeed,
-                    speedLimit: speedLimit,
-                    gpsBars: gpsBars,
-                    heading: heading,
-                    tripDistanceMeters: tripDistanceMeters,
-                    tripSeconds: tripSeconds,
-                    maxSpeedMph: maxSpeedMph,
-                  ),
+            child: PageView(
+              controller: PageController(initialPage: mode == "bike" ? 0 : 1),
+              onPageChanged: (index) {
+                setState(() {
+                  mode = index == 0 ? "bike" : "car";
+                });
+              },
+              children: [
+                ScooterHUD(
+                  speed: currentSpeed,
+                  speedLimit: speedLimit,
+                  gpsBars: gpsBars,
+                  heading: heading,
+                  tripDistanceMeters: tripDistanceMeters,
+                  tripSeconds: tripSeconds,
+                  maxSpeedMph: maxSpeedMph,
+                ),
+                CarHUD(
+                  speed: currentSpeed,
+                  speedLimit: speedLimit,
+                  gpsBars: gpsBars,
+                  heading: heading,
+                  tripDistanceMeters: tripDistanceMeters,
+                  tripSeconds: tripSeconds,
+                  maxSpeedMph: maxSpeedMph,
+                ),
+              ],
+            ),
           ),
 
-          // ⭐ GPS PULSING ICON (TOP RIGHT)
+          // ⭐ GPS PULSING ICON
           Positioned(
             top: 40,
             right: 20,
@@ -517,8 +511,8 @@ class _SpeedHomeState extends State<SpeedHome>
               child: FadeTransition(
                 opacity: gpsFade,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 30, vertical: 14),
                   decoration: BoxDecoration(
                     color: Colors.red.withOpacity(0.85),
                     borderRadius: BorderRadius.circular(8),
@@ -543,7 +537,7 @@ class _SpeedHomeState extends State<SpeedHome>
               ),
             ),
 
-          // ⭐ SETTINGS BUTTON (TOP LEFT)
+          // ⭐ SETTINGS BUTTON
           Positioned(
             top: 40,
             left: 20,
@@ -555,7 +549,6 @@ class _SpeedHomeState extends State<SpeedHome>
                     builder: (context) => SettingsScreen(
                       testMode: testMode,
                       batterySaver: batterySaver,
-                      mode: mode,
                       mapStyle: mapStyle,
                       voiceAlerts: voiceAlerts,
                     ),
@@ -578,3 +571,4 @@ class _SpeedHomeState extends State<SpeedHome>
     );
   }
 }
+
