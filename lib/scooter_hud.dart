@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-class ScooterHud extends StatefulWidget {
+class ScooterHUD extends StatefulWidget {
   final double currentSpeed;
   final int? speedLimit;
   final LatLng? currentLatLng;

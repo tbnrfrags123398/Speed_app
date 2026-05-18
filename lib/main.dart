@@ -473,7 +473,6 @@ class _SpeedHomeState extends State<SpeedHome>
                   MaterialPageRoute(
                     builder: (context) => SettingsScreen(
                       batterySaver: batterySaver,
-                      mode: mode,
                       testMode: testMode,
                     ),
                   ),

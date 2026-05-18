@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class CarHud extends StatelessWidget {
+class CarHUD extends StatelessWidget {
   final double currentSpeed;
   final int? speedLimit;
 
