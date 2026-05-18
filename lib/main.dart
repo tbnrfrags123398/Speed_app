@@ -408,7 +408,7 @@ class _SpeedHomeState extends State<SpeedHome>
   }
 
   // =============================================================
-  // ⭐ APPLY SETTINGS
+  // ⭐ APPLY SETTINGS (FIXED — NO MODE)
   // =============================================================
   void _applySettings(Map result) {
     setState(() {
@@ -424,16 +424,109 @@ class _SpeedHomeState extends State<SpeedHome>
       _stopTestMode();
     }
   }
-
-  // =============================================================
-  // ⭐ BUILD UI
-  // =============================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
+
+          // ⭐ ULTRA FUTURISTIC MODE LABEL (CYBERPUNK)
+          Positioned(
+            top: 18,
+            left: 0,
+            right: 0,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 500),
+              transitionBuilder: (child, anim) {
+                return ScaleTransition(
+                  scale: CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
+                  child: child,
+                );
+              },
+              child: Container(
+                key: ValueKey(mode),
+                padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 10),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  gradient: LinearGradient(
+                    colors: mode == "bike"
+                        ? [
+                            Colors.cyanAccent.withOpacity(0.25),
+                            Colors.blueAccent.withOpacity(0.15),
+                          ]
+                        : [
+                            Colors.redAccent.withOpacity(0.25),
+                            Colors.orangeAccent.withOpacity(0.15),
+                          ],
+                  ),
+                  border: Border.all(
+                    width: 2.5,
+                    color: mode == "bike" ? Colors.cyanAccent : Colors.redAccent,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: mode == "bike"
+                          ? Colors.cyanAccent.withOpacity(0.7)
+                          : Colors.redAccent.withOpacity(0.7),
+                      blurRadius: 25,
+                      spreadRadius: 2,
+                    ),
+                    BoxShadow(
+                      color: mode == "bike"
+                          ? Colors.blueAccent.withOpacity(0.4)
+                          : Colors.orangeAccent.withOpacity(0.4),
+                      blurRadius: 40,
+                      spreadRadius: 6,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      mode == "bike" ? Icons.pedal_bike : Icons.directions_car,
+                      size: 26,
+                      color: mode == "bike" ? Colors.cyanAccent : Colors.redAccent,
+                      shadows: [
+                        Shadow(
+                          color: mode == "bike"
+                              ? Colors.cyanAccent.withOpacity(0.9)
+                              : Colors.redAccent.withOpacity(0.9),
+                          blurRadius: 20,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      mode == "bike" ? "BIKE MODE" : "CAR MODE",
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                        color: mode == "bike" ? Colors.cyanAccent : Colors.redAccent,
+                        shadows: [
+                          Shadow(
+                            color: mode == "bike"
+                                ? Colors.cyanAccent.withOpacity(0.9)
+                                : Colors.redAccent.withOpacity(0.9),
+                            blurRadius: 25,
+                          ),
+                          Shadow(
+                            color: mode == "bike"
+                                ? Colors.blueAccent.withOpacity(0.5)
+                                : Colors.orangeAccent.withOpacity(0.5),
+                            blurRadius: 40,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
           // ⭐ SWIPE LEFT/RIGHT TO SWITCH MODES
           Positioned.fill(
             child: PageView(
@@ -511,8 +604,7 @@ class _SpeedHomeState extends State<SpeedHome>
               child: FadeTransition(
                 opacity: gpsFade,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 30, vertical: 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
                   decoration: BoxDecoration(
                     color: Colors.red.withOpacity(0.85),
                     borderRadius: BorderRadius.circular(8),
@@ -571,4 +663,3 @@ class _SpeedHomeState extends State<SpeedHome>
     );
   }
 }
-
