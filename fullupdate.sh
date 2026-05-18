@@ -2,35 +2,36 @@
 
 set -e
 
-APK_URL="https://nightly.link/tbnrfrags123398/Speed_app/workflows/Build%20Android%20APK/main/app-release.apk"
-
+APK_URL="https://nightly.link/tbnrfrags123398/Speed_app/workflows/Build%20Android%20APK/main/app-release.zip"
 echo "🚀 Starting full auto-update..."
 
-# Check for changes
-if git diff --quiet; then
-  echo "ℹ️ No changes to commit. Skipping git commit/push."
-else
-  echo "📁 Adding changes..."
-  git add .
+# ============================================================
+# ALWAYS FORCE A NEW BUILD
+# ============================================================
+echo "// build trigger $(date)" > lib/build_trigger.dart
 
-  echo "📝 Committing..."
-  git commit -m "Auto update" || {
-    echo "❌ Commit failed."
-    exit 1
-  }
+echo "📁 Adding forced rebuild trigger..."
+git add lib/build_trigger.dart
 
-  echo "⬆️ Pushing to GitHub..."
-  git push || {
-    echo "❌ Git push failed."
-    exit 1
-  }
-fi
+echo "📝 Committing..."
+git commit -m "Force rebuild $(date)" || {
+  echo "❌ Commit failed."
+  exit 1
+}
 
+echo "⬆️ Pushing to GitHub..."
+git push || {
+  echo "❌ Git push failed."
+  exit 1
+}
+
+# ============================================================
+# WAIT FOR GITHUB ACTIONS BUILD
+# ============================================================
 echo "⏳ Waiting for GitHub Actions build to finish and artifact to be ready..."
 
-# Poll nightly.link until it returns 200 or timeout
-MAX_TRIES=10
-SLEEP_SECONDS=60
+MAX_TRIES=15
+SLEEP_SECONDS=45
 TRY=1
 HTTP_CODE=0
 
@@ -54,16 +55,25 @@ if [ "$HTTP_CODE" != "200" ]; then
   exit 1
 fi
 
-echo "📥 Downloading newest APK from GitHub Actions artifact..."
-wget -O latest.apk "$APK_URL"
+# ============================================================
+# DOWNLOAD + INSTALL
+# ============================================================
+echo "📥 Downloading newest APK ZIP..."
+wget -O app-release.zip "$APK_URL"
 
-if [ ! -s latest.apk ]; then
-  echo "❌ ERROR: APK download failed. File is empty."
+if [ ! -s app-release.zip ]; then
+  echo "❌ ERROR: ZIP download failed. File is empty."
   exit 1
 fi
 
+echo "📦 Unzipping APK..."
+unzip -o app-release.zip
+
+# The artifact always extracts to app-release.apk
+mv app-release.apk latest.apk
+
 echo "🗑️ Uninstalling old version..."
-adb uninstall com.example.speed_app || echo "ℹ️ Old app not installed or uninstall failed, continuing..."
+adb uninstall com.example.speed_app || echo "ℹ️ Old app not installed, continuing..."
 
 echo "📦 Installing new APK..."
 adb install latest.apk || {
@@ -71,5 +81,10 @@ adb install latest.apk || {
   exit 1
 }
 
-echo "✅ DONE! Your app is fully updated and installed."
+# ============================================================
+# AUTO-LAUNCH APP
+# ============================================================
+echo "🚀 Launching Speed HUD..."
+adb shell monkey -p com.example.speed_app 1
 
+echo "🎉 DONE! Your app is fully updated, installed, and launched."
