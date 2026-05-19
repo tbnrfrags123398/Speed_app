@@ -528,7 +528,6 @@ class _SpeedHomeState extends State<SpeedHome>
               ),
             ),
           ),
-
           // ⭐ SWIPE LEFT/RIGHT TO SWITCH MODES
           Positioned.fill(
             child: PageView(
@@ -538,30 +537,28 @@ class _SpeedHomeState extends State<SpeedHome>
                   mode = index == 0 ? "bike" : "car";
                 });
               },
-children: [
-  ScooterHUD(
-    speed: currentSpeed,
-    speedLimit: speedLimit,
-    gpsBars: gpsBars,
-    heading: heading,
-    tripDistanceMeters: tripDistanceMeters,
-    tripSeconds: tripSeconds,
-    maxSpeedMph: maxSpeedMph,
-    simpleDisplay: simpleDisplay,
-  ),
 
-  CarHUD(
-    speed: currentSpeed,
-    speedLimit: speedLimit,
-    gpsBars: gpsBars,
-    heading: heading,
-    tripDistanceMeters: tripDistanceMeters,
-    tripSeconds: tripSeconds,
-    maxSpeedMph: maxSpeedMph,
-    simpleDisplay: simpleDisplay,
-  ),
-],
-),
+              children: [
+                ScooterHUD(
+                  speed: currentSpeed,
+                  speedLimit: speedLimit,
+                  gpsBars: gpsBars,
+                  heading: heading,
+                  tripDistanceMeters: tripDistanceMeters,
+                  tripSeconds: tripSeconds,
+                  maxSpeedMph: maxSpeedMph,
+                  simpleDisplay: simpleDisplay,
+                ),
+
+                CarHUD(
+                  speed: currentSpeed,
+                  speedLimit: speedLimit,
+                  gpsBars: gpsBars,
+                  heading: heading,
+                  tripDistanceMeters: tripDistanceMeters,
+                  tripSeconds: tripSeconds,
+                  maxSpeedMph: maxSpeedMph,
+                  simpleDisplay: simpleDisplay,
                 ),
               ],
             ),
@@ -651,6 +648,7 @@ children: [
                       batterySaver: batterySaver,
                       mapStyle: mapStyle,
                       voiceAlerts: voiceAlerts,
+                      simpleDisplay: simpleDisplay, // ⭐ REQUIRED
                     ),
                   ),
                 );
