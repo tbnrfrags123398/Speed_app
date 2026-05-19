@@ -5,6 +5,7 @@ class SettingsScreen extends StatefulWidget {
   final bool batterySaver;
   final String mapStyle; // light / dark / satellite
   final bool voiceAlerts;
+  final bool simpleDisplay; // ⭐ NEW
 
   const SettingsScreen({
     super.key,
@@ -12,6 +13,7 @@ class SettingsScreen extends StatefulWidget {
     required this.batterySaver,
     required this.mapStyle,
     required this.voiceAlerts,
+    required this.simpleDisplay, // ⭐ NEW
   });
 
   @override
@@ -23,6 +25,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late bool batterySaver;
   late String mapStyle;
   late bool voiceAlerts;
+  late bool simpleDisplay; // ⭐ NEW
 
   @override
   void initState() {
@@ -31,6 +34,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     batterySaver = widget.batterySaver;
     mapStyle = widget.mapStyle;
     voiceAlerts = widget.voiceAlerts;
+    simpleDisplay = widget.simpleDisplay; // ⭐ NEW
   }
 
   void _saveAndExit() {
@@ -39,6 +43,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       "batterySaver": batterySaver,
       "mapStyle": mapStyle,
       "voiceAlerts": voiceAlerts,
+      "simpleDisplay": simpleDisplay, // ⭐ NEW
     });
   }
 
@@ -100,6 +105,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
               setState(() => batterySaver = value);
             },
             activeColor: Colors.greenAccent,
+          ),
+
+          // ⭐ SIMPLE DISPLAY (NEW)
+          SwitchListTile(
+            title: const Text(
+              "Simple Display",
+              style: TextStyle(color: Colors.white),
+            ),
+            subtitle: const Text(
+              "Minimal HUD like classic GPS speed apps",
+              style: TextStyle(color: Colors.white70),
+            ),
+            value: simpleDisplay,
+            onChanged: (value) {
+              setState(() => simpleDisplay = value);
+            },
+            activeColor: Colors.blueAccent,
           ),
 
           const Divider(color: Colors.white24),
@@ -164,7 +186,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 20),
 
-          // ⭐ HUD COLOR PREVIEW (BASED ON SWIPE MODE)
+          // ⭐ HUD COLOR PREVIEW
           Center(
             child: Column(
               children: [
@@ -243,3 +265,4 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 }
+

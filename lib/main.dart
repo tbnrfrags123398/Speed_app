@@ -148,6 +148,7 @@ class _SpeedHomeState extends State<SpeedHome>
   String mode = "bike"; // controlled ONLY by swipe
   String mapStyle = "dark";
   bool voiceAlerts = true;
+  bool simpleDisplay = false;
 
   // Foreground service
   ReceivePort? _receivePort;
@@ -416,7 +417,8 @@ class _SpeedHomeState extends State<SpeedHome>
       batterySaver = result["batterySaver"] ?? batterySaver;
       mapStyle = result["mapStyle"] ?? mapStyle;
       voiceAlerts = result["voiceAlerts"] ?? voiceAlerts;
-    });
+   simpleDisplay = result["simpleDisplay"] ?? simpleDisplay;
+ });
 
     if (testMode) {
       _startTestMode();
@@ -536,24 +538,30 @@ class _SpeedHomeState extends State<SpeedHome>
                   mode = index == 0 ? "bike" : "car";
                 });
               },
-              children: [
-                ScooterHUD(
-                  speed: currentSpeed,
-                  speedLimit: speedLimit,
-                  gpsBars: gpsBars,
-                  heading: heading,
-                  tripDistanceMeters: tripDistanceMeters,
-                  tripSeconds: tripSeconds,
-                  maxSpeedMph: maxSpeedMph,
-                ),
-                CarHUD(
-                  speed: currentSpeed,
-                  speedLimit: speedLimit,
-                  gpsBars: gpsBars,
-                  heading: heading,
-                  tripDistanceMeters: tripDistanceMeters,
-                  tripSeconds: tripSeconds,
-                  maxSpeedMph: maxSpeedMph,
+children: [
+  ScooterHUD(
+    speed: currentSpeed,
+    speedLimit: speedLimit,
+    gpsBars: gpsBars,
+    heading: heading,
+    tripDistanceMeters: tripDistanceMeters,
+    tripSeconds: tripSeconds,
+    maxSpeedMph: maxSpeedMph,
+    simpleDisplay: simpleDisplay,
+  ),
+
+  CarHUD(
+    speed: currentSpeed,
+    speedLimit: speedLimit,
+    gpsBars: gpsBars,
+    heading: heading,
+    tripDistanceMeters: tripDistanceMeters,
+    tripSeconds: tripSeconds,
+    maxSpeedMph: maxSpeedMph,
+    simpleDisplay: simpleDisplay,
+  ),
+],
+),
                 ),
               ],
             ),

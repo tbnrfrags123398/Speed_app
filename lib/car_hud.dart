@@ -8,6 +8,7 @@ class CarHUD extends StatelessWidget {
   final double tripDistanceMeters;
   final int tripSeconds;
   final double maxSpeedMph;
+  final bool simpleDisplay;
 
   const CarHUD({
     super.key,
@@ -18,10 +19,13 @@ class CarHUD extends StatelessWidget {
     required this.tripDistanceMeters,
     required this.tripSeconds,
     required this.maxSpeedMph,
+    required this.simpleDisplay,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (simpleDisplay) return _simpleDisplay();
+
     final bool isSpeeding =
         speedLimit != null && speed > (speedLimit! + 5);
 
@@ -57,7 +61,7 @@ class CarHUD extends StatelessWidget {
             ),
           ),
 
-          // ⭐ Compass / heading hologram (top center)
+          // ⭐ Compass
           Positioned(
             top: 40,
             left: 0,
@@ -65,9 +69,7 @@ class CarHUD extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  heading != null
-                      ? "${heading!.toStringAsFixed(0)}°"
-                      : "--°",
+                  heading != null ? "${heading!.toStringAsFixed(0)}°" : "--°",
                   style: TextStyle(
                     color: Colors.redAccent,
                     fontSize: 18,
@@ -99,7 +101,7 @@ class CarHUD extends StatelessWidget {
             ),
           ),
 
-          // ⭐ Central speed energy ring + number
+          // ⭐ Speed energy ring
           Center(
             child: SizedBox(
               width: 260,
@@ -107,7 +109,6 @@ class CarHUD extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Outer glow ring
                   Container(
                     width: 260,
                     height: 260,
@@ -129,7 +130,6 @@ class CarHUD extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // Inner ring
                   Container(
                     width: 210,
                     height: 210,
@@ -141,7 +141,6 @@ class CarHUD extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Speed number
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -186,27 +185,22 @@ class CarHUD extends StatelessWidget {
             ),
           ),
 
-          // ⭐ Waze-style speed limit bubble (right of speed)
+          // ⭐ Speed limit bubble
           Positioned(
             right: 30,
             top: MediaQuery.of(context).size.height * 0.42,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.black.withOpacity(0.85),
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
-                  color: isSpeeding
-                      ? Colors.orangeAccent
-                      : Colors.redAccent,
+                  color: isSpeeding ? Colors.orangeAccent : Colors.redAccent,
                   width: 2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: (isSpeeding
-                            ? Colors.orangeAccent
-                            : Colors.redAccent)
+                    color: (isSpeeding ? Colors.orangeAccent : Colors.redAccent)
                         .withOpacity(0.8),
                     blurRadius: 20,
                     spreadRadius: 2,
@@ -214,7 +208,6 @@ class CarHUD extends StatelessWidget {
                 ],
               ),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     "LIMIT",
@@ -226,15 +219,11 @@ class CarHUD extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    speedLimit != null
-                        ? "${speedLimit} MPH"
-                        : "NO DATA",
+                    speedLimit != null ? "${speedLimit} MPH" : "NO DATA",
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: isSpeeding
-                          ? Colors.orangeAccent
-                          : Colors.redAccent,
+                      color: isSpeeding ? Colors.orangeAccent : Colors.redAccent,
                     ),
                   ),
                 ],
@@ -242,7 +231,7 @@ class CarHUD extends StatelessWidget {
             ),
           ),
 
-          // ⭐ GPS Bars (top right, red neon)
+          // ⭐ GPS bars
           Positioned(
             top: 40,
             right: 24,
@@ -272,14 +261,13 @@ class CarHUD extends StatelessWidget {
             ),
           ),
 
-          // ⭐ Trip stats neon bar (bottom)
+          // ⭐ Trip stats bar
           Positioned(
             bottom: 26,
             left: 16,
             right: 16,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
                 color: Colors.black.withOpacity(0.7),
@@ -298,18 +286,11 @@ class CarHUD extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _stat(
-                    "DIST",
-                    "${(tripDistanceMeters / 1609).toStringAsFixed(2)} mi",
-                  ),
-                  _stat(
-                    "TIME",
-                    "${tripSeconds ~/ 60}m ${(tripSeconds % 60)}s",
-                  ),
-                  _stat(
-                    "MAX",
-                    "${maxSpeedMph.toStringAsFixed(0)} mph",
-                  ),
+                  _stat("DIST",
+                      "${(tripDistanceMeters / 1609).toStringAsFixed(2)} mi"),
+                  _stat("TIME",
+                      "${tripSeconds ~/ 60}m ${(tripSeconds % 60)}s"),
+                  _stat("MAX", "${maxSpeedMph.toStringAsFixed(0)} mph"),
                 ],
               ),
             ),
@@ -319,27 +300,14 @@ class CarHUD extends StatelessWidget {
     );
   }
 
-  Widget _stat(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.redAccent.withOpacity(0.8),
-            fontSize: 12,
-            letterSpacing: 2,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-          ),
-        ),
-      ],
-    );
-  }
-}
+  // ⭐ SIMPLE DISPLAY MODE
+  Widget _simpleDisplay() {
+    return Container(
+      color: Colors.black,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            speed.toStringAsFixed(0),
+            style: const TextStyle(
+              fontSize: 160
