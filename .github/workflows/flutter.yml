@@ -9,6 +9,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      PUB_ENVIRONMENT: flutter_ignore_pub_advisories  # ⭐ FIXES PUB BUG
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,15 +26,12 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.22.3'
-          cache: false   # ❌ DISABLE CORRUPTED PUB CACHE
+          cache: false
 
-      - name: Clean Flutter cache
+      - name: Clean Flutter
         run: flutter clean
 
-      - name: Reset pub cache
-        run: flutter pub cache repair || true
-
-      - name: Get dependencies (fresh)
+      - name: Fresh pub get (no advisories)
         run: flutter pub get --no-precompile
 
       - name: Build release APK
@@ -42,3 +42,4 @@ jobs:
         with:
           name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
+
