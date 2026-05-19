@@ -376,37 +376,53 @@ class _SpeedHomeState extends State<SpeedHome>
   // =============================================================
   // ⭐ FETCH SPEED LIMIT
   // =============================================================
-  Future<void> fetchSpeedLimit(double lat, double lon) async {
-    final url =
-        "https://overpass-api.de/api/interpreter?data=[out:json];way(around:20,$lat,$lon)[\"maxspeed\"];out;";
+Future<void> fetchSpeedLimit(double lat, double lon) async {
+  final query = """
+  [out:json];
+  (
+    way(around:30,$lat,$lon)["maxspeed"];
+    way(around:30,$lat,$lon)["maxspeed:type"];
+    way(around:30,$lat,$lon)["maxspeed:advisory"];
+    relation(around:30,$lat,$lon)["maxspeed"];
+    node(around:30,$lat,$lon)["maxspeed"];
+  );
+  out tags;
+  """;
 
-    try {
-      final response = await http.get(Uri.parse(url));
+  final url = "https://overpass-api.de/api/interpreter?data=${Uri.encodeComponent(query)}";
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+  try {
+    final response = await http.get(Uri.parse(url));
 
-        if (data["elements"] != null && data["elements"].isNotEmpty) {
-          final tags = data["elements"][0]["tags"];
-          final raw = tags["maxspeed"];
+    if (response.statusCode != 200) return;
 
-          if (raw != null) {
-            int mphLimit;
+    final data = jsonDecode(response.body);
 
-            if (raw.contains("mph")) {
-              mphLimit = int.parse(raw.replaceAll("mph", "").trim());
-            } else {
-              mphLimit = (int.parse(raw) * 0.621371).round();
-            }
+    if (data["elements"] == null || data["elements"].isEmpty) return;
 
-            setState(() => speedLimit = mphLimit);
-          }
-        }
-      }
-    } catch (e) {
-      print("OSM speed limit error: $e");
+    final tags = data["elements"][0]["tags"];
+    final raw = tags["maxspeed"] ??
+                tags["maxspeed:advisory"] ??
+                tags["maxspeed:type"];
+
+    if (raw == null) return;
+
+    int mphLimit;
+
+    if (raw.contains("mph")) {
+      mphLimit = int.parse(raw.replaceAll("mph", "").trim());
+    } else if (RegExp(r'^\d+$').hasMatch(raw)) {
+      mphLimit = (int.parse(raw) * 0.621371).round();
+    } else {
+      return;
     }
+
+    setState(() => speedLimit = mphLimit);
+
+  } catch (e) {
+    print("Speed limit fetch error: $e");
   }
+}
 
   // =============================================================
   // ⭐ APPLY SETTINGS (FIXED — NO MODE)
