@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_compass/flutter_compass.dart';
+import 'dart:math' as math;
 
 import 'gps_service.dart';
 import 'scooter_hud.dart';
@@ -344,28 +345,24 @@ class _SpeedHomeState extends State<SpeedHome>
     fetchSpeedLimit(pos.latitude, pos.longitude);
   }
 
-  double _distanceMeters(LatLng a, LatLng b) {
-    const R = 6371000.0;
-    final dLat = _degToRad(b.latitude - a.latitude);
-    final dLon = _degToRad(b.longitude - a.longitude);
-    final lat1 = _degToRad(a.latitude);
-    final lat2 = _degToRad(b.latitude);
+double _distanceMeters(LatLng a, LatLng b) {
+  const R = 6371000.0; // Earth radius in meters
 
-    final sinDLat = Math.sin(dLat / 2);
-    final sinDLon = Math.sin(dLon / 2);
+  final dLat = _degToRad(b.latitude - a.latitude);
+  final dLon = _degToRad(b.longitude - a.longitude);
+  final lat1 = _degToRad(a.latitude);
+  final lat2 = _degToRad(b.latitude);
 
-    final c = 2 *
-        Math.asin(
-          Math.sqrt(
-            sinDLat * sinDLat +
-                Math.cos(lat1) * Math.cos(lat2) * sinDLon * sinDLon,
-          ),
-        );
+  final h = math.sin(dLat / 2) * math.sin(dLat / 2) +
+      math.cos(lat1) * math.cos(lat2) *
+          math.sin(dLon / 2) * math.sin(dLon / 2);
 
-    return R * c;
-  }
+  final c = 2 * math.asin(math.sqrt(h));
 
-  double _degToRad(double deg) => deg * 3.141592653589793 / 180.0;
+  return R * c;
+}
+
+double _degToRad(double deg) => deg * math.pi / 180.0;
 
   // =============================================================
   // ⭐ TEST MODE SIMULATION
@@ -819,20 +816,5 @@ class _SpeedHomeState extends State<SpeedHome>
       ),
     );
   }
-}
-
-// Small math helpers since dart:math isn't imported above
-class Math {
-  static double sin(double x) => _sin(x);
-  static double cos(double x) => _cos(x);
-  static double sqrt(double x) => _sqrt(x);
-  static double asin(double x) => _asin(x);
-
-  // These will be replaced by dart:math if you prefer:
-  // import 'dart:math' as math; and use math.sin, math.cos, etc.
-  static double _sin(double x) => (x).sin();
-  static double _cos(double x) => (x).cos();
-  static double _sqrt(double x) => x >= 0 ? x.toDouble().sqrt() : double.nan;
-  static double _asin(double x) => x.asin();
 }
 
