@@ -23,10 +23,16 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.22.3'
-          cache: true
+          cache: false   # ❌ DISABLE CORRUPTED PUB CACHE
 
-      - name: Get dependencies
-        run: flutter pub get
+      - name: Clean Flutter cache
+        run: flutter clean
+
+      - name: Reset pub cache
+        run: flutter pub cache repair || true
+
+      - name: Get dependencies (fresh)
+        run: flutter pub get --no-precompile
 
       - name: Build release APK
         run: flutter build apk --release
