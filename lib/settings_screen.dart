@@ -5,7 +5,7 @@ class SettingsScreen extends StatefulWidget {
   final bool batterySaver;
   final String mapStyle; // light / dark / satellite
   final bool voiceAlerts;
-  final bool simpleDisplay; // ⭐ NEW
+  final bool simpleDisplay;
 
   const SettingsScreen({
     super.key,
@@ -13,7 +13,7 @@ class SettingsScreen extends StatefulWidget {
     required this.batterySaver,
     required this.mapStyle,
     required this.voiceAlerts,
-    required this.simpleDisplay, // ⭐ NEW
+    required this.simpleDisplay,
   });
 
   @override
@@ -25,7 +25,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late bool batterySaver;
   late String mapStyle;
   late bool voiceAlerts;
-  late bool simpleDisplay; // ⭐ NEW
+  late bool simpleDisplay;
 
   @override
   void initState() {
@@ -34,7 +34,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     batterySaver = widget.batterySaver;
     mapStyle = widget.mapStyle;
     voiceAlerts = widget.voiceAlerts;
-    simpleDisplay = widget.simpleDisplay; // ⭐ NEW
+    simpleDisplay = widget.simpleDisplay;
   }
 
   void _saveAndExit() {
@@ -43,7 +43,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       "batterySaver": batterySaver,
       "mapStyle": mapStyle,
       "voiceAlerts": voiceAlerts,
-      "simpleDisplay": simpleDisplay, // ⭐ NEW
+      "simpleDisplay": simpleDisplay,
     });
   }
 
@@ -107,7 +107,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             activeColor: Colors.greenAccent,
           ),
 
-          // ⭐ SIMPLE DISPLAY (NEW)
+          // ⭐ SIMPLE DISPLAY
           SwitchListTile(
             title: const Text(
               "Simple Display",
@@ -154,8 +154,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 DropdownMenuItem(
                   value: "satellite",
-                  child:
-                      Text("Satellite", style: TextStyle(color: Colors.white)),
+                  child: Text("Satellite",
+                      style: TextStyle(color: Colors.white)),
                 ),
               ],
               onChanged: (value) {
@@ -181,88 +181,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onChanged: (value) {
               setState(() => voiceAlerts = value);
             },
-            activeColor: Colors.orangeAccent,
+            activeColor: Colors.cyanAccent,
           ),
 
           const SizedBox(height: 20),
-
-          // ⭐ HUD COLOR PREVIEW
-          Center(
-            child: Column(
-              children: [
-                const Text(
-                  "HUD Color Preview",
-                  style: TextStyle(color: Colors.white70, fontSize: 16),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  width: 140,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    gradient: const LinearGradient(
-                      colors: [
-                        Colors.cyanAccent,
-                        Colors.blueAccent,
-                      ],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.cyanAccent.withOpacity(0.6),
-                        blurRadius: 20,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Text(
-                      "Bike HUD",
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  width: 140,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    gradient: const LinearGradient(
-                      colors: [
-                        Colors.redAccent,
-                        Colors.orangeAccent,
-                      ],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.redAccent,
-                        blurRadius: 20,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Text(
-                      "Car HUD",
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 40),
-              ],
-            ),
-          ),
         ],
       ),
     );
   }
 }
+
 

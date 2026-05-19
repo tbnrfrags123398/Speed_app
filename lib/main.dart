@@ -7,6 +7,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_compass/flutter_compass.dart';
 
 import 'gps_service.dart';
 import 'scooter_hud.dart';
@@ -132,7 +133,7 @@ class _SpeedHomeState extends State<SpeedHome>
   final FlutterTts tts = FlutterTts();
 
   // GPS + Speed
-  double currentSpeed = 0.0;
+  double currentSpeed = 0.0; // mph
   int? speedLimit;
   LatLng? currentLatLng;
   double? heading;
@@ -141,6 +142,8 @@ class _SpeedHomeState extends State<SpeedHome>
   double tripDistanceMeters = 0.0;
   int tripSeconds = 0;
   double maxSpeedMph = 0.0;
+
+  DateTime? _lastSpeedUpdate; // for time-based distance
 
   // Modes / Settings
   bool batterySaver = false;
@@ -176,6 +179,15 @@ class _SpeedHomeState extends State<SpeedHome>
 
   int? _lastAnnouncedSpeedLimit;
 
+  // ⭐ 0–60 Timer
+  bool zeroToSixtyActive = false;
+  DateTime? zeroStartTime;
+  double zeroToSixtyResult = 0.0;
+
+  // ⭐ Speed limit fetch throttling
+  DateTime? _lastSpeedLimitFetch;
+  LatLng? _lastSpeedLimitLatLng;
+
   @override
   void initState() {
     super.initState();
@@ -199,6 +211,19 @@ class _SpeedHomeState extends State<SpeedHome>
       CurvedAnimation(parent: gpsFadeController, curve: Curves.easeInOut),
     );
 
+    // ⭐ COMPASS HEADING (works indoors) — throttled
+    FlutterCompass.events!.listen((event) {
+      final h = event.heading;
+      if (h == null) return;
+
+      // Only update if heading changed enough
+      if (heading == null || (h - heading!).abs() > 1.0) {
+        setState(() {
+          heading = h;
+        });
+      }
+    });
+
     initServiceListener();
   }
 
@@ -221,6 +246,29 @@ class _SpeedHomeState extends State<SpeedHome>
   }
 
   // =============================================================
+  // ⭐ 0–60 TIMER LOGIC
+  // =============================================================
+  void _updateZeroToSixty(double speedMph) {
+    if (!zeroToSixtyActive && speedMph > 0.5) {
+      zeroToSixtyActive = true;
+      zeroStartTime = DateTime.now();
+    }
+
+    if (zeroToSixtyActive && speedMph >= 60.0) {
+      final endTime = DateTime.now();
+      zeroToSixtyResult =
+          endTime.difference(zeroStartTime!).inMilliseconds / 1000.0;
+
+      tts.speak(
+        "Zero to sixty in ${zeroToSixtyResult.toStringAsFixed(2)} seconds",
+      );
+
+      zeroToSixtyActive = false;
+      zeroStartTime = null;
+    }
+  }
+
+  // =============================================================
   // ⭐ FOREGROUND SERVICE LISTENER
   // =============================================================
   void initServiceListener() {
@@ -229,12 +277,28 @@ class _SpeedHomeState extends State<SpeedHome>
     _receivePort?.listen((data) {
       if (testMode) return;
 
+      final now = DateTime.now();
+
       if (data["lat"] != null && data["lon"] != null) {
-        gpsLastSeen = DateTime.now();
+        gpsLastSeen = now;
       }
 
+      final double newSpeed = (data["speed"] ?? 0.0).toDouble();
+
+      // Trip distance based on real time delta
+      if (_lastSpeedUpdate != null) {
+        final dt = now.difference(_lastSpeedUpdate!).inMilliseconds / 1000.0;
+        if (dt > 0 && newSpeed > 0.5) {
+          final speedMps = newSpeed * 0.44704; // mph -> m/s
+          tripDistanceMeters += speedMps * dt;
+          tripSeconds += dt.round();
+        }
+      }
+      _lastSpeedUpdate = now;
+
       setState(() {
-        currentSpeed = data["speed"] ?? 0.0;
+        currentSpeed = newSpeed;
+        _updateZeroToSixty(currentSpeed);
 
         if (currentSpeed > maxSpeedMph) {
           maxSpeedMph = currentSpeed;
@@ -244,22 +308,64 @@ class _SpeedHomeState extends State<SpeedHome>
           currentLatLng = LatLng(data["lat"], data["lon"]);
         }
 
-        heading = data["heading"];
+        // heading from service if provided
+        heading = data["heading"] ?? heading;
       });
 
-      if (currentSpeed > 1.0) {
-        tripSeconds += 1;
-        tripDistanceMeters += (currentSpeed / 2.23694);
-      }
-
       if (currentLatLng != null && !batterySaver) {
-        fetchSpeedLimit(currentLatLng!.latitude, currentLatLng!.longitude);
+        _maybeFetchSpeedLimit(currentLatLng!);
       }
 
       handleGpsLostLogic();
       _handleVoiceAlerts();
     });
   }
+
+  // =============================================================
+  // ⭐ SPEED LIMIT FETCH THROTTLING
+  // =============================================================
+  void _maybeFetchSpeedLimit(LatLng pos) {
+    final now = DateTime.now();
+
+    // Time throttle: at most once every 5 seconds
+    if (_lastSpeedLimitFetch != null &&
+        now.difference(_lastSpeedLimitFetch!).inSeconds < 5) {
+      return;
+    }
+
+    // Distance throttle: only if moved > 20m from last fetch
+    if (_lastSpeedLimitLatLng != null) {
+      final d = _distanceMeters(_lastSpeedLimitLatLng!, pos);
+      if (d < 20.0) return;
+    }
+
+    _lastSpeedLimitFetch = now;
+    _lastSpeedLimitLatLng = pos;
+    fetchSpeedLimit(pos.latitude, pos.longitude);
+  }
+
+  double _distanceMeters(LatLng a, LatLng b) {
+    const R = 6371000.0;
+    final dLat = _degToRad(b.latitude - a.latitude);
+    final dLon = _degToRad(b.longitude - a.longitude);
+    final lat1 = _degToRad(a.latitude);
+    final lat2 = _degToRad(b.latitude);
+
+    final sinDLat = Math.sin(dLat / 2);
+    final sinDLon = Math.sin(dLon / 2);
+
+    final c = 2 *
+        Math.asin(
+          Math.sqrt(
+            sinDLat * sinDLat +
+                Math.cos(lat1) * Math.cos(lat2) * sinDLon * sinDLon,
+          ),
+        );
+
+    return R * c;
+  }
+
+  double _degToRad(double deg) => deg * 3.141592653589793 / 180.0;
 
   // =============================================================
   // ⭐ TEST MODE SIMULATION
@@ -374,10 +480,10 @@ class _SpeedHomeState extends State<SpeedHome>
   }
 
   // =============================================================
-  // ⭐ FETCH SPEED LIMIT
-  // =============================================================
-Future<void> fetchSpeedLimit(double lat, double lon) async {
-  final query = """
+  // ⭐ FETCH SPEED LIMIT (OSM / Overpass)
+// =============================================================
+  Future<void> fetchSpeedLimit(double lat, double lon) async {
+    final query = """
   [out:json];
   (
     way(around:30,$lat,$lon)["maxspeed"];
@@ -389,52 +495,52 @@ Future<void> fetchSpeedLimit(double lat, double lon) async {
   out tags;
   """;
 
-  final url = "https://overpass-api.de/api/interpreter?data=${Uri.encodeComponent(query)}";
+    final url =
+        "https://overpass-api.de/api/interpreter?data=${Uri.encodeComponent(query)}";
 
-  try {
-    final response = await http.get(Uri.parse(url));
+    try {
+      final response = await http.get(Uri.parse(url));
 
-    if (response.statusCode != 200) return;
+      if (response.statusCode != 200) return;
 
-    final data = jsonDecode(response.body);
+      final data = jsonDecode(response.body);
 
-    if (data["elements"] == null || data["elements"].isEmpty) return;
+      if (data["elements"] == null || data["elements"].isEmpty) return;
 
-    final tags = data["elements"][0]["tags"];
-    final raw = tags["maxspeed"] ??
-                tags["maxspeed:advisory"] ??
-                tags["maxspeed:type"];
+      final tags = data["elements"][0]["tags"];
+      final raw = tags["maxspeed"] ??
+          tags["maxspeed:advisory"] ??
+          tags["maxspeed:type"];
 
-    if (raw == null) return;
+      if (raw == null) return;
 
-    int mphLimit;
+      int mphLimit;
 
-    if (raw.contains("mph")) {
-      mphLimit = int.parse(raw.replaceAll("mph", "").trim());
-    } else if (RegExp(r'^\d+$').hasMatch(raw)) {
-      mphLimit = (int.parse(raw) * 0.621371).round();
-    } else {
-      return;
+      if (raw.contains("mph")) {
+        mphLimit = int.parse(raw.replaceAll("mph", "").trim());
+      } else if (RegExp(r'^\d+$').hasMatch(raw)) {
+        mphLimit = (int.parse(raw) * 0.621371).round();
+      } else {
+        return;
+      }
+
+      setState(() => speedLimit = mphLimit);
+    } catch (e) {
+      print("Speed limit fetch error: $e");
     }
-
-    setState(() => speedLimit = mphLimit);
-
-  } catch (e) {
-    print("Speed limit fetch error: $e");
   }
-}
 
   // =============================================================
   // ⭐ APPLY SETTINGS (FIXED — NO MODE)
-  // =============================================================
+// =============================================================
   void _applySettings(Map result) {
     setState(() {
       testMode = result["testMode"] ?? testMode;
       batterySaver = result["batterySaver"] ?? batterySaver;
       mapStyle = result["mapStyle"] ?? mapStyle;
       voiceAlerts = result["voiceAlerts"] ?? voiceAlerts;
-   simpleDisplay = result["simpleDisplay"] ?? simpleDisplay;
- });
+      simpleDisplay = result["simpleDisplay"] ?? simpleDisplay;
+    });
 
     if (testMode) {
       _startTestMode();
@@ -442,13 +548,13 @@ Future<void> fetchSpeedLimit(double lat, double lon) async {
       _stopTestMode();
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-
           // ⭐ ULTRA FUTURISTIC MODE LABEL (CYBERPUNK)
           Positioned(
             top: 18,
@@ -458,13 +564,17 @@ Future<void> fetchSpeedLimit(double lat, double lon) async {
               duration: const Duration(milliseconds: 500),
               transitionBuilder: (child, anim) {
                 return ScaleTransition(
-                  scale: CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
+                  scale: CurvedAnimation(
+                    parent: anim,
+                    curve: Curves.easeOutBack,
+                  ),
                   child: child,
                 );
               },
               child: Container(
                 key: ValueKey(mode),
-                padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 26, vertical: 10),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
                   gradient: LinearGradient(
@@ -480,7 +590,8 @@ Future<void> fetchSpeedLimit(double lat, double lon) async {
                   ),
                   border: Border.all(
                     width: 2.5,
-                    color: mode == "bike" ? Colors.cyanAccent : Colors.redAccent,
+                    color:
+                        mode == "bike" ? Colors.cyanAccent : Colors.redAccent,
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -503,9 +614,13 @@ Future<void> fetchSpeedLimit(double lat, double lon) async {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      mode == "bike" ? Icons.pedal_bike : Icons.directions_car,
+                      mode == "bike"
+                          ? Icons.pedal_bike
+                          : Icons.directions_car,
                       size: 26,
-                      color: mode == "bike" ? Colors.cyanAccent : Colors.redAccent,
+                      color: mode == "bike"
+                          ? Colors.cyanAccent
+                          : Colors.redAccent,
                       shadows: [
                         Shadow(
                           color: mode == "bike"
@@ -522,7 +637,9 @@ Future<void> fetchSpeedLimit(double lat, double lon) async {
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 2,
-                        color: mode == "bike" ? Colors.cyanAccent : Colors.redAccent,
+                        color: mode == "bike"
+                            ? Colors.cyanAccent
+                            : Colors.redAccent,
                         shadows: [
                           Shadow(
                             color: mode == "bike"
@@ -544,16 +661,17 @@ Future<void> fetchSpeedLimit(double lat, double lon) async {
               ),
             ),
           ),
+
           // ⭐ SWIPE LEFT/RIGHT TO SWITCH MODES
           Positioned.fill(
             child: PageView(
-              controller: PageController(initialPage: mode == "bike" ? 0 : 1),
+              controller:
+                  PageController(initialPage: mode == "bike" ? 0 : 1),
               onPageChanged: (index) {
                 setState(() {
                   mode = index == 0 ? "bike" : "car";
                 });
               },
-
               children: [
                 ScooterHUD(
                   speed: currentSpeed,
@@ -565,7 +683,6 @@ Future<void> fetchSpeedLimit(double lat, double lon) async {
                   maxSpeedMph: maxSpeedMph,
                   simpleDisplay: simpleDisplay,
                 ),
-
                 CarHUD(
                   speed: currentSpeed,
                   speedLimit: speedLimit,
@@ -625,7 +742,10 @@ Future<void> fetchSpeedLimit(double lat, double lon) async {
               child: FadeTransition(
                 opacity: gpsFade,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 30,
+                    vertical: 14,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.red.withOpacity(0.85),
                     borderRadius: BorderRadius.circular(8),
@@ -650,6 +770,21 @@ Future<void> fetchSpeedLimit(double lat, double lon) async {
               ),
             ),
 
+          // ⭐ 0–60 TIMER DISPLAY (CAR MODE ONLY)
+          if (mode == "car")
+            Positioned(
+              bottom: 40,
+              left: 20,
+              child: Text(
+                "0–60: ${zeroToSixtyResult.toStringAsFixed(2)}s",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+
           // ⭐ SETTINGS BUTTON
           Positioned(
             top: 40,
@@ -664,7 +799,7 @@ Future<void> fetchSpeedLimit(double lat, double lon) async {
                       batterySaver: batterySaver,
                       mapStyle: mapStyle,
                       voiceAlerts: voiceAlerts,
-                      simpleDisplay: simpleDisplay, // ⭐ REQUIRED
+                      simpleDisplay: simpleDisplay,
                     ),
                   ),
                 );
@@ -685,3 +820,19 @@ Future<void> fetchSpeedLimit(double lat, double lon) async {
     );
   }
 }
+
+// Small math helpers since dart:math isn't imported above
+class Math {
+  static double sin(double x) => _sin(x);
+  static double cos(double x) => _cos(x);
+  static double sqrt(double x) => _sqrt(x);
+  static double asin(double x) => _asin(x);
+
+  // These will be replaced by dart:math if you prefer:
+  // import 'dart:math' as math; and use math.sin, math.cos, etc.
+  static double _sin(double x) => (x).sin();
+  static double _cos(double x) => (x).cos();
+  static double _sqrt(double x) => x >= 0 ? x.toDouble().sqrt() : double.nan;
+  static double _asin(double x) => x.asin();
+}
+

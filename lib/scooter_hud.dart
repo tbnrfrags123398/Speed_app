@@ -29,6 +29,10 @@ class ScooterHUD extends StatelessWidget {
     final bool isSpeeding =
         speedLimit != null && speed > (speedLimit! + 5);
 
+    final distanceMiles = (tripDistanceMeters / 1609).toStringAsFixed(2);
+    final timeMinutes = tripSeconds ~/ 60;
+    final timeSeconds = tripSeconds % 60;
+
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -149,7 +153,9 @@ class ScooterHUD extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 120,
                           fontWeight: FontWeight.bold,
-                          color: isSpeeding ? Colors.redAccent : Colors.cyanAccent,
+                          color: isSpeeding
+                              ? Colors.redAccent
+                              : Colors.cyanAccent,
                           shadows: [
                             Shadow(
                               color: (isSpeeding
@@ -162,7 +168,7 @@ class ScooterHUD extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
+                      const Text(
                         "MPH",
                         style: TextStyle(
                           fontSize: 22,
@@ -170,7 +176,7 @@ class ScooterHUD extends StatelessWidget {
                           color: Colors.white70,
                           shadows: [
                             Shadow(
-                              color: Colors.cyanAccent.withOpacity(0.6),
+                              color: Colors.cyanAccent,
                               blurRadius: 16,
                             ),
                           ],
@@ -207,7 +213,7 @@ class ScooterHUD extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  Text(
+                  const Text(
                     "LIMIT",
                     style: TextStyle(
                       fontSize: 14,
@@ -221,7 +227,8 @@ class ScooterHUD extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: isSpeeding ? Colors.redAccent : Colors.cyanAccent,
+                      color:
+                          isSpeeding ? Colors.redAccent : Colors.cyanAccent,
                     ),
                   ),
                 ],
@@ -265,7 +272,8 @@ class ScooterHUD extends StatelessWidget {
             left: 16,
             right: 16,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
                 color: Colors.black.withOpacity(0.7),
@@ -284,10 +292,8 @@ class ScooterHUD extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _stat("DIST",
-                      "${(tripDistanceMeters / 1609).toStringAsFixed(2)} mi"),
-                  _stat("TIME",
-                      "${tripSeconds ~/ 60}m ${(tripSeconds % 60)}s"),
+                  _stat("DIST", "$distanceMiles mi"),
+                  _stat("TIME", "${timeMinutes}m ${timeSeconds}s"),
                   _stat("MAX", "${maxSpeedMph.toStringAsFixed(0)} mph"),
                 ],
               ),
@@ -300,6 +306,8 @@ class ScooterHUD extends StatelessWidget {
 
   // ⭐ SIMPLE DISPLAY MODE
   Widget _simpleDisplay() {
+    final distanceMiles = (tripDistanceMeters / 1609).toStringAsFixed(2);
+
     return Container(
       color: Colors.black,
       child: Column(
@@ -315,7 +323,7 @@ class ScooterHUD extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text(
-            "Distance: ${(tripDistanceMeters / 1609).toStringAsFixed(2)} mi",
+            "Distance: $distanceMiles mi",
             style: const TextStyle(color: Colors.white70, fontSize: 24),
           ),
           const SizedBox(height: 10),

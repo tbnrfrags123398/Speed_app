@@ -29,6 +29,10 @@ class CarHUD extends StatelessWidget {
     final bool isSpeeding =
         speedLimit != null && speed > (speedLimit! + 5);
 
+    final distanceMiles = (tripDistanceMeters / 1609).toStringAsFixed(2);
+    final timeMinutes = tripSeconds ~/ 60;
+    final timeSeconds = tripSeconds % 60;
+
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -164,7 +168,7 @@ class CarHUD extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
+                      const Text(
                         "MPH",
                         style: TextStyle(
                           fontSize: 22,
@@ -172,7 +176,7 @@ class CarHUD extends StatelessWidget {
                           color: Colors.white70,
                           shadows: [
                             Shadow(
-                              color: Colors.redAccent.withOpacity(0.6),
+                              color: Colors.redAccent,
                               blurRadius: 16,
                             ),
                           ],
@@ -200,7 +204,9 @@ class CarHUD extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: (isSpeeding ? Colors.orangeAccent : Colors.redAccent)
+                    color: (isSpeeding
+                            ? Colors.orangeAccent
+                            : Colors.redAccent)
                         .withOpacity(0.8),
                     blurRadius: 20,
                     spreadRadius: 2,
@@ -209,7 +215,7 @@ class CarHUD extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  Text(
+                  const Text(
                     "LIMIT",
                     style: TextStyle(
                       fontSize: 14,
@@ -223,7 +229,9 @@ class CarHUD extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: isSpeeding ? Colors.orangeAccent : Colors.redAccent,
+                      color: isSpeeding
+                          ? Colors.orangeAccent
+                          : Colors.redAccent,
                     ),
                   ),
                 ],
@@ -267,7 +275,8 @@ class CarHUD extends StatelessWidget {
             left: 16,
             right: 16,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
                 color: Colors.black.withOpacity(0.7),
@@ -286,10 +295,8 @@ class CarHUD extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _stat("DIST",
-                      "${(tripDistanceMeters / 1609).toStringAsFixed(2)} mi"),
-                  _stat("TIME",
-                      "${tripSeconds ~/ 60}m ${(tripSeconds % 60)}s"),
+                  _stat("DIST", "$distanceMiles mi"),
+                  _stat("TIME", "${timeMinutes}m ${timeSeconds}s"),
                   _stat("MAX", "${maxSpeedMph.toStringAsFixed(0)} mph"),
                 ],
               ),
@@ -302,6 +309,8 @@ class CarHUD extends StatelessWidget {
 
   // ⭐ SIMPLE DISPLAY MODE
   Widget _simpleDisplay() {
+    final distanceMiles = (tripDistanceMeters / 1609).toStringAsFixed(2);
+
     return Container(
       color: Colors.black,
       child: Column(
@@ -316,16 +325,14 @@ class CarHUD extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-
           Text(
-            "Distance: ${(tripDistanceMeters / 1609).toStringAsFixed(2)} mi",
+            "Distance: $distanceMiles mi",
             style: const TextStyle(
               fontSize: 20,
               color: Colors.white70,
             ),
           ),
           const SizedBox(height: 6),
-
           Text(
             "Max: ${maxSpeedMph.toStringAsFixed(0)} mph",
             style: const TextStyle(
@@ -334,9 +341,10 @@ class CarHUD extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-
           Text(
-            speedLimit != null ? "Speed Limit: $speedLimit" : "Speed Limit: --",
+            speedLimit != null
+                ? "Speed Limit: $speedLimit"
+                : "Speed Limit: --",
             style: const TextStyle(
               fontSize: 20,
               color: Colors.white70,
@@ -372,3 +380,4 @@ class CarHUD extends StatelessWidget {
     );
   }
 }
+
