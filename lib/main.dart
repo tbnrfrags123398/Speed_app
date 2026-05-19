@@ -185,6 +185,12 @@ class _SpeedHomeState extends State<SpeedHome>
   DateTime? zeroStartTime;
   double zeroToSixtyResult = 0.0;
 
+  // ⭐ Performance Stats
+  List<double> _accelHistory = [];
+  double _lastHorsepower = 0.0;
+  double? _lastSpeedMps;
+  DateTime? _lastAccelTime;
+
   // ⭐ Speed limit fetch throttling
   DateTime? _lastSpeedLimitFetch;
   LatLng? _lastSpeedLimitLatLng;
@@ -301,6 +307,33 @@ class _SpeedHomeState extends State<SpeedHome>
         currentSpeed = newSpeed;
         _updateZeroToSixty(currentSpeed);
 
+        // ⭐ Performance calculations
+        final speedMps = currentSpeed * 0.44704; // mph → m/s
+        final nowAccel = DateTime.now();
+
+        if (_lastSpeedMps != null && _lastAccelTime != null) {
+          final dt =
+              nowAccel.difference(_lastAccelTime!).inMilliseconds / 1000.0;
+          if (dt > 0) {
+            final accel = (speedMps - _lastSpeedMps!) / dt;
+
+            // Store acceleration history
+            _accelHistory.add(accel);
+            if (_accelHistory.length > 20) {
+              _accelHistory.removeAt(0);
+            }
+
+            // Auto mass based on mode
+            final mass = mode == "bike" ? 100.0 : 1689.0; // kg
+
+            // Horsepower estimate
+            _lastHorsepower = (mass * accel * speedMps) / 746.0;
+          }
+        }
+
+        _lastSpeedMps = speedMps;
+        _lastAccelTime = nowAccel;
+
         if (currentSpeed > maxSpeedMph) {
           maxSpeedMph = currentSpeed;
         }
@@ -345,24 +378,36 @@ class _SpeedHomeState extends State<SpeedHome>
     fetchSpeedLimit(pos.latitude, pos.longitude);
   }
 
-double _distanceMeters(LatLng a, LatLng b) {
-  const R = 6371000.0; // Earth radius in meters
+  double _distanceMeters(LatLng a, LatLng b) {
+    const R = 6371000.0; // Earth radius in meters
 
-  final dLat = _degToRad(b.latitude - a.latitude);
-  final dLon = _degToRad(b.longitude - a.longitude);
-  final lat1 = _degToRad(a.latitude);
-  final lat2 = _degToRad(b.latitude);
+    final dLat = _degToRad(b.latitude - a.latitude);
+    final dLon = _degToRad(b.longitude - a.longitude);
+    final lat1 = _degToRad(a.latitude);
+    final lat2 = _degToRad(b.latitude);
 
-  final h = math.sin(dLat / 2) * math.sin(dLat / 2) +
-      math.cos(lat1) * math.cos(lat2) *
-          math.sin(dLon / 2) * math.sin(dLon / 2);
+    final h = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1) * math.cos(lat2) *
+            math.sin(dLon / 2) * math.sin(dLon / 2);
 
-  final c = 2 * math.asin(math.sqrt(h));
+    final c = 2 * math.asin(math.sqrt(h));
 
-  return R * c;
-}
+    return R * c;
+  }
 
-double _degToRad(double deg) => deg * math.pi / 180.0;
+  double _degToRad(double deg) => deg * math.pi / 180.0;
+
+  String _asciiAccelGraph() {
+    if (_accelHistory.isEmpty) return "";
+
+    final maxVal = _accelHistory.reduce((a, b) => a > b ? a : b);
+    if (maxVal <= 0) return "";
+
+    return _accelHistory.map((a) {
+      final bars = ((a / maxVal) * 12).clamp(1, 12).round();
+      return "|" * bars;
+    }).join("\n");
+  }
 
   // =============================================================
   // ⭐ TEST MODE SIMULATION
@@ -478,7 +523,7 @@ double _degToRad(double deg) => deg * math.pi / 180.0;
 
   // =============================================================
   // ⭐ FETCH SPEED LIMIT (OSM / Overpass)
-// =============================================================
+  // =============================================================
   Future<void> fetchSpeedLimit(double lat, double lon) async {
     final query = """
   [out:json];
@@ -767,20 +812,138 @@ double _degToRad(double deg) => deg * math.pi / 180.0;
               ),
             ),
 
-          // ⭐ 0–60 TIMER DISPLAY (CAR MODE ONLY)
-          if (mode == "car")
-            Positioned(
-              bottom: 40,
-              left: 20,
-              child: Text(
-                "0–60: ${zeroToSixtyResult.toStringAsFixed(2)}s",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
+          // ⭐ PERFORMANCE PANEL (BOTH MODES)
+          Positioned(
+            bottom: 30,
+            left: 20,
+            child: GestureDetector(
+              onTap: () {
+                // Single tap → reset
+                setState(() {
+                  zeroToSixtyActive = false;
+                  zeroStartTime = null;
+                  zeroToSixtyResult = 0.0;
+                  _accelHistory.clear();
+                });
+                tts.speak("Zero to sixty timer reset");
+              },
+              onDoubleTap: () {
+                // Double tap → start new run
+                setState(() {
+                  zeroToSixtyActive = false;
+                  zeroStartTime = null;
+                  zeroToSixtyResult = 0.0;
+                  _accelHistory.clear();
+                });
+                tts.speak("Starting zero to sixty test");
+              },
+              onLongPress: () {
+                // Long press → show stats popup
+                showDialog(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    backgroundColor: Colors.black87,
+                    title: const Text(
+                      "Performance Stats",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    content: Text(
+                      "Best 0–60: ${zeroToSixtyResult.toStringAsFixed(2)}s\n\n"
+                      "Live HP (${mode == "bike" ? "Bike" : "Car"}): ${_lastHorsepower.toStringAsFixed(1)} hp\n\n"
+                      "Acceleration Graph:\n${_asciiAccelGraph()}",
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                );
+              },
+              child: AnimatedBuilder(
+                animation: gpsPulseController,
+                builder: (context, child) {
+                  final glow = zeroToSixtyActive
+                      ? (0.6 + gpsPulseController.value * 0.4)
+                      : 1.0;
+
+                  final panelColor = mode == "bike"
+                      ? Colors.cyanAccent
+                      : Colors.orangeAccent;
+
+                  return Opacity(
+                    opacity: glow,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.65),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: panelColor.withOpacity(0.9),
+                          width: 1.8,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: panelColor.withOpacity(0.7),
+                            blurRadius: 18,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 0–60 time
+                          Text(
+                            "0–60: ${zeroToSixtyResult.toStringAsFixed(2)}s",
+                            style: TextStyle(
+                              color: zeroToSixtyActive
+                                  ? panelColor
+                                  : Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              shadows: [
+                                Shadow(
+                                  color: zeroToSixtyActive
+                                      ? panelColor.withOpacity(0.9)
+                                      : Colors.black,
+                                  blurRadius: zeroToSixtyActive ? 18 : 0,
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 4),
+
+                          // Live horsepower estimate
+                          Text(
+                            "HP (${mode == "bike" ? "Bike" : "Car"}): ${_lastHorsepower.toStringAsFixed(1)}",
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+
+                          const SizedBox(height: 4),
+
+                          // ASCII acceleration graph
+                          Text(
+                            _asciiAccelGraph(),
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11,
+                              fontFamily: "monospace",
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
+          ),
 
           // ⭐ SETTINGS BUTTON
           Positioned(
@@ -817,4 +980,3 @@ double _degToRad(double deg) => deg * math.pi / 180.0;
     );
   }
 }
-
