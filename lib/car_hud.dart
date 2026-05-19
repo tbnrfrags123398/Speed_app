@@ -310,4 +310,65 @@ class CarHUD extends StatelessWidget {
           Text(
             speed.toStringAsFixed(0),
             style: const TextStyle(
-              fontSize: 160
+              fontSize: 160,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          Text(
+            "Distance: ${(tripDistanceMeters / 1609).toStringAsFixed(2)} mi",
+            style: const TextStyle(
+              fontSize: 20,
+              color: Colors.white70,
+            ),
+          ),
+          const SizedBox(height: 6),
+
+          Text(
+            "Max: ${maxSpeedMph.toStringAsFixed(0)} mph",
+            style: const TextStyle(
+              fontSize: 20,
+              color: Colors.white70,
+            ),
+          ),
+          const SizedBox(height: 6),
+
+          Text(
+            speedLimit != null ? "Speed Limit: $speedLimit" : "Speed Limit: --",
+            style: const TextStyle(
+              fontSize: 20,
+              color: Colors.white70,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ⭐ Trip stat helper
+  Widget _stat(String label, String value) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white54,
+            fontSize: 14,
+            letterSpacing: 1.5,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+}
