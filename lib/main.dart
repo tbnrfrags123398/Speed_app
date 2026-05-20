@@ -144,12 +144,12 @@ class _SpeedHomeState extends State<SpeedHome>
   int tripSeconds = 0;
   double maxSpeedMph = 0.0;
 
-  DateTime? _lastSpeedUpdate; // for time-based distance
+  DateTime? _lastSpeedUpdate;
 
   // Modes / Settings
   bool batterySaver = false;
   bool testMode = false;
-  String mode = "bike"; // controlled ONLY by swipe
+  String mode = "bike";
   String mapStyle = "dark";
   bool voiceAlerts = true;
   bool simpleDisplay = false;
@@ -218,12 +218,11 @@ class _SpeedHomeState extends State<SpeedHome>
       CurvedAnimation(parent: gpsFadeController, curve: Curves.easeInOut),
     );
 
-    // ⭐ COMPASS HEADING (works indoors) — throttled
+    // ⭐ COMPASS HEADING
     FlutterCompass.events!.listen((event) {
       final h = event.heading;
       if (h == null) return;
 
-      // Only update if heading changed enough
       if (heading == null || (h - heading!).abs() > 1.0) {
         setState(() {
           heading = h;
@@ -292,11 +291,11 @@ class _SpeedHomeState extends State<SpeedHome>
 
       final double newSpeed = (data["speed"] ?? 0.0).toDouble();
 
-      // Trip distance based on real time delta
+      // Trip distance
       if (_lastSpeedUpdate != null) {
         final dt = now.difference(_lastSpeedUpdate!).inMilliseconds / 1000.0;
         if (dt > 0 && newSpeed > 0.5) {
-          final speedMps = newSpeed * 0.44704; // mph -> m/s
+          final speedMps = newSpeed * 0.44704;
           tripDistanceMeters += speedMps * dt;
           tripSeconds += dt.round();
         }
@@ -308,7 +307,7 @@ class _SpeedHomeState extends State<SpeedHome>
         _updateZeroToSixty(currentSpeed);
 
         // ⭐ Performance calculations
-        final speedMps = currentSpeed * 0.44704; // mph → m/s
+        final speedMps = currentSpeed * 0.44704;
         final nowAccel = DateTime.now();
 
         if (_lastSpeedMps != null && _lastAccelTime != null) {
@@ -317,16 +316,13 @@ class _SpeedHomeState extends State<SpeedHome>
           if (dt > 0) {
             final accel = (speedMps - _lastSpeedMps!) / dt;
 
-            // Store acceleration history
             _accelHistory.add(accel);
             if (_accelHistory.length > 20) {
               _accelHistory.removeAt(0);
             }
 
-            // Auto mass based on mode
-            final mass = mode == "bike" ? 100.0 : 1689.0; // kg
+            final mass = mode == "bike" ? 100.0 : 1689.0;
 
-            // Horsepower estimate
             _lastHorsepower = (mass * accel * speedMps) / 746.0;
           }
         }
@@ -342,7 +338,6 @@ class _SpeedHomeState extends State<SpeedHome>
           currentLatLng = LatLng(data["lat"], data["lon"]);
         }
 
-        // heading from service if provided
         heading = data["heading"] ?? heading;
       });
 
@@ -354,20 +349,17 @@ class _SpeedHomeState extends State<SpeedHome>
       _handleVoiceAlerts();
     });
   }
-
   // =============================================================
   // ⭐ SPEED LIMIT FETCH THROTTLING
   // =============================================================
   void _maybeFetchSpeedLimit(LatLng pos) {
     final now = DateTime.now();
 
-    // Time throttle: at most once every 5 seconds
     if (_lastSpeedLimitFetch != null &&
         now.difference(_lastSpeedLimitFetch!).inSeconds < 5) {
       return;
     }
 
-    // Distance throttle: only if moved > 20m from last fetch
     if (_lastSpeedLimitLatLng != null) {
       final d = _distanceMeters(_lastSpeedLimitLatLng!, pos);
       if (d < 20.0) return;
@@ -379,7 +371,7 @@ class _SpeedHomeState extends State<SpeedHome>
   }
 
   double _distanceMeters(LatLng a, LatLng b) {
-    const R = 6371000.0; // Earth radius in meters
+    const R = 6371000.0;
 
     final dLat = _degToRad(b.latitude - a.latitude);
     final dLon = _degToRad(b.longitude - a.longitude);
@@ -387,8 +379,10 @@ class _SpeedHomeState extends State<SpeedHome>
     final lat2 = _degToRad(b.latitude);
 
     final h = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(lat1) * math.cos(lat2) *
-            math.sin(dLon / 2) * math.sin(dLon / 2);
+        math.cos(lat1) *
+            math.cos(lat2) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
 
     final c = 2 * math.asin(math.sqrt(h));
 
@@ -573,8 +567,8 @@ class _SpeedHomeState extends State<SpeedHome>
   }
 
   // =============================================================
-  // ⭐ APPLY SETTINGS (FIXED — NO MODE)
-// =============================================================
+  // ⭐ APPLY SETTINGS
+  // =============================================================
   void _applySettings(Map result) {
     setState(() {
       testMode = result["testMode"] ?? testMode;
@@ -591,52 +585,158 @@ class _SpeedHomeState extends State<SpeedHome>
     }
   }
 
+  // =============================================================
+  // ⭐ BUILD UI (NO TOP MODE LABEL ANYMORE)
+  // =============================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
-children: [
-  // MODE LABEL
-  Positioned(...),
+        children: [
+          // ⭐ PAGEVIEW (HUDs)
+          Positioned.fill(
+            child: PageView(
+              controller:
+                  PageController(initialPage: mode == "bike" ? 0 : 1),
+              onPageChanged: (index) {
+                setState(() {
+                  mode = index == 0 ? "bike" : "car";
+                });
+              },
+              children: [
+                ScooterHUD(
+                  speed: currentSpeed,
+                  speedLimit: speedLimit,
+                  gpsBars: gpsBars,
+                  heading: heading,
+                  tripDistanceMeters: tripDistanceMeters,
+                  tripSeconds: tripSeconds,
+                  maxSpeedMph: maxSpeedMph,
+                  simpleDisplay: simpleDisplay,
+                ),
 
-  // PAGEVIEW (must be BEFORE performance panel)
-  Positioned.fill(
-    child: PageView(
-      controller: PageController(initialPage: mode == "bike" ? 0 : 1),
-      onPageChanged: (index) {
-        setState(() {
-          mode = index == 0 ? "bike" : "car";
-        });
-      },
-      children: [
-        ScooterHUD(...),
-        CarHUD(...),
-      ],
-    ),
-  ),
+                CarHUD(
+                  speed: currentSpeed,
+                  speedLimit: speedLimit,
+                  gpsBars: gpsBars,
+                  heading: heading,
+                  tripDistanceMeters: tripDistanceMeters,
+                  tripSeconds: tripSeconds,
+                  maxSpeedMph: maxSpeedMph,
+                  simpleDisplay: simpleDisplay,
 
-  // GPS ICON
-  Positioned(...),
+                  // ⭐ PERFORMANCE VALUES
+                  zeroToSixty: zeroToSixtyResult,
+                  horsepower: _lastHorsepower,
+                  accelGraph: _asciiAccelGraph(),
+                  zeroActive: zeroToSixtyActive,
+                  panelColor: Colors.orangeAccent,
+                ),
+              ],
+            ),
+          ),
 
-  // GPS BARS
-  Positioned(...),
+          // ⭐ GPS ICON
+          Positioned(
+            top: 40,
+            right: 20,
+            child: AnimatedBuilder(
+              animation: gpsPulseController,
+              builder: (context, child) {
+                final opacity =
+                    batterySaver ? 0.4 : gpsPulse.value;
+                return Opacity(
+                  opacity: opacity,
+                  child: Icon(
+                    Icons.gps_fixed,
+                    size: 32,
+                    color: gpsLost ? Colors.red : Colors.greenAccent,
+                  ),
+                );
+              },
+            ),
+          ),
 
-  // GPS LOST BANNER
-  if (gpsLost && !batterySaver) Positioned(...),
+          // ⭐ GPS BARS
+          Positioned(
+            top: 80,
+            right: 20,
+            child: Row(
+              children: List.generate(4, (i) {
+                return Container(
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 2),
+                  width: 6,
+                  height: (i + 1) * 10,
+                  decoration: BoxDecoration(
+                    color: gpsLost
+                        ? Colors.red
+                        : Colors.greenAccent,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                );
+              }),
+            ),
+          ),
 
-  // ⭐ PERFORMANCE PANEL (must be AFTER PageView)
-  Positioned(
-    bottom: 30,
-    left: 20,
-    child: GestureDetector(
-      onTap: () { ... },
-      onDoubleTap: () { ... },
-      onLongPress: () { ... },
-      child: AnimatedBuilder(...),
-    ),
-  ),
+          // ⭐ GPS LOST BANNER
+          if (gpsLost && !batterySaver)
+            Center(
+              child: FadeTransition(
+                opacity: gpsFade,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 30, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.85),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    "⚠ NO GPS — SPEED INACCURATE",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
 
-  // SETTINGS BUTTON
-  Positioned(...),
-]
+          // ⭐ SETTINGS BUTTON
+          Positioned(
+            top: 40,
+            left: 20,
+            child: GestureDetector(
+              onTap: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SettingsScreen(
+                      testMode: testMode,
+                      batterySaver: batterySaver,
+                      mapStyle: mapStyle,
+                      voiceAlerts: voiceAlerts,
+                      simpleDisplay: simpleDisplay,
+                    ),
+                  ),
+                );
+
+                if (result != null) {
+                  _applySettings(result);
+                }
+              },
+              child: const Icon(
+                Icons.settings,
+                size: 34,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
