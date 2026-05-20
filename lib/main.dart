@@ -596,387 +596,47 @@ class _SpeedHomeState extends State<SpeedHome>
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
-        children: [
-          // ⭐ ULTRA FUTURISTIC MODE LABEL (CYBERPUNK)
-          Positioned(
-            top: 18,
-            left: 0,
-            right: 0,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 500),
-              transitionBuilder: (child, anim) {
-                return ScaleTransition(
-                  scale: CurvedAnimation(
-                    parent: anim,
-                    curve: Curves.easeOutBack,
-                  ),
-                  child: child,
-                );
-              },
-              child: Container(
-                key: ValueKey(mode),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 26, vertical: 10),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  gradient: LinearGradient(
-                    colors: mode == "bike"
-                        ? [
-                            Colors.cyanAccent.withOpacity(0.25),
-                            Colors.blueAccent.withOpacity(0.15),
-                          ]
-                        : [
-                            Colors.redAccent.withOpacity(0.25),
-                            Colors.orangeAccent.withOpacity(0.15),
-                          ],
-                  ),
-                  border: Border.all(
-                    width: 2.5,
-                    color:
-                        mode == "bike" ? Colors.cyanAccent : Colors.redAccent,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: mode == "bike"
-                          ? Colors.cyanAccent.withOpacity(0.7)
-                          : Colors.redAccent.withOpacity(0.7),
-                      blurRadius: 25,
-                      spreadRadius: 2,
-                    ),
-                    BoxShadow(
-                      color: mode == "bike"
-                          ? Colors.blueAccent.withOpacity(0.4)
-                          : Colors.orangeAccent.withOpacity(0.4),
-                      blurRadius: 40,
-                      spreadRadius: 6,
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      mode == "bike"
-                          ? Icons.pedal_bike
-                          : Icons.directions_car,
-                      size: 26,
-                      color: mode == "bike"
-                          ? Colors.cyanAccent
-                          : Colors.redAccent,
-                      shadows: [
-                        Shadow(
-                          color: mode == "bike"
-                              ? Colors.cyanAccent.withOpacity(0.9)
-                              : Colors.redAccent.withOpacity(0.9),
-                          blurRadius: 20,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      mode == "bike" ? "BIKE MODE" : "CAR MODE",
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2,
-                        color: mode == "bike"
-                            ? Colors.cyanAccent
-                            : Colors.redAccent,
-                        shadows: [
-                          Shadow(
-                            color: mode == "bike"
-                                ? Colors.cyanAccent.withOpacity(0.9)
-                                : Colors.redAccent.withOpacity(0.9),
-                            blurRadius: 25,
-                          ),
-                          Shadow(
-                            color: mode == "bike"
-                                ? Colors.blueAccent.withOpacity(0.5)
-                                : Colors.orangeAccent.withOpacity(0.5),
-                            blurRadius: 40,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+children: [
+  // MODE LABEL
+  Positioned(...),
 
-          // ⭐ SWIPE LEFT/RIGHT TO SWITCH MODES
-          Positioned.fill(
-            child: PageView(
-              controller:
-                  PageController(initialPage: mode == "bike" ? 0 : 1),
-              onPageChanged: (index) {
-                setState(() {
-                  mode = index == 0 ? "bike" : "car";
-                });
-              },
-              children: [
-                ScooterHUD(
-                  speed: currentSpeed,
-                  speedLimit: speedLimit,
-                  gpsBars: gpsBars,
-                  heading: heading,
-                  tripDistanceMeters: tripDistanceMeters,
-                  tripSeconds: tripSeconds,
-                  maxSpeedMph: maxSpeedMph,
-                  simpleDisplay: simpleDisplay,
-                ),
-                CarHUD(
-                  speed: currentSpeed,
-                  speedLimit: speedLimit,
-                  gpsBars: gpsBars,
-                  heading: heading,
-                  tripDistanceMeters: tripDistanceMeters,
-                  tripSeconds: tripSeconds,
-                  maxSpeedMph: maxSpeedMph,
-                  simpleDisplay: simpleDisplay,
-                ),
-              ],
-            ),
-          ),
+  // PAGEVIEW (must be BEFORE performance panel)
+  Positioned.fill(
+    child: PageView(
+      controller: PageController(initialPage: mode == "bike" ? 0 : 1),
+      onPageChanged: (index) {
+        setState(() {
+          mode = index == 0 ? "bike" : "car";
+        });
+      },
+      children: [
+        ScooterHUD(...),
+        CarHUD(...),
+      ],
+    ),
+  ),
 
-          // ⭐ GPS PULSING ICON
-          Positioned(
-            top: 40,
-            right: 20,
-            child: AnimatedBuilder(
-              animation: gpsPulseController,
-              builder: (context, child) {
-                final opacity = batterySaver ? 0.4 : gpsPulse.value;
-                return Opacity(
-                  opacity: opacity,
-                  child: Icon(
-                    Icons.gps_fixed,
-                    size: 32,
-                    color: gpsLost ? Colors.red : Colors.greenAccent,
-                  ),
-                );
-              },
-            ),
-          ),
+  // GPS ICON
+  Positioned(...),
 
-          // ⭐ GPS SCANNING BARS
-          Positioned(
-            top: 80,
-            right: 20,
-            child: Row(
-              children: List.generate(4, (i) {
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  width: 6,
-                  height: (i + 1) * 10,
-                  decoration: BoxDecoration(
-                    color: gpsLost ? Colors.red : Colors.greenAccent,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                );
-              }),
-            ),
-          ),
+  // GPS BARS
+  Positioned(...),
 
-          // ⭐ GPS LOST BANNER
-          if (gpsLost && !batterySaver)
-            Center(
-              child: FadeTransition(
-                opacity: gpsFade,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 30,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.85),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.red.withOpacity(0.8),
-                        blurRadius: 25,
-                        spreadRadius: 5,
-                      ),
-                    ],
-                  ),
-                  child: const Text(
-                    "⚠ NO GPS — SPEED INACCURATE",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+  // GPS LOST BANNER
+  if (gpsLost && !batterySaver) Positioned(...),
 
-          // ⭐ PERFORMANCE PANEL (BOTH MODES)
-          Positioned(
-            bottom: 30,
-            left: 20,
-            child: GestureDetector(
-              onTap: () {
-                // Single tap → reset
-                setState(() {
-                  zeroToSixtyActive = false;
-                  zeroStartTime = null;
-                  zeroToSixtyResult = 0.0;
-                  _accelHistory.clear();
-                });
-                tts.speak("Zero to sixty timer reset");
-              },
-              onDoubleTap: () {
-                // Double tap → start new run
-                setState(() {
-                  zeroToSixtyActive = false;
-                  zeroStartTime = null;
-                  zeroToSixtyResult = 0.0;
-                  _accelHistory.clear();
-                });
-                tts.speak("Starting zero to sixty test");
-              },
-              onLongPress: () {
-                // Long press → show stats popup
-                showDialog(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    backgroundColor: Colors.black87,
-                    title: const Text(
-                      "Performance Stats",
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    content: Text(
-                      "Best 0–60: ${zeroToSixtyResult.toStringAsFixed(2)}s\n\n"
-                      "Live HP (${mode == "bike" ? "Bike" : "Car"}): ${_lastHorsepower.toStringAsFixed(1)} hp\n\n"
-                      "Acceleration Graph:\n${_asciiAccelGraph()}",
-                      style: const TextStyle(color: Colors.white70),
-                    ),
-                  ),
-                );
-              },
-              child: AnimatedBuilder(
-                animation: gpsPulseController,
-                builder: (context, child) {
-                  final glow = zeroToSixtyActive
-                      ? (0.6 + gpsPulseController.value * 0.4)
-                      : 1.0;
+  // ⭐ PERFORMANCE PANEL (must be AFTER PageView)
+  Positioned(
+    bottom: 30,
+    left: 20,
+    child: GestureDetector(
+      onTap: () { ... },
+      onDoubleTap: () { ... },
+      onLongPress: () { ... },
+      child: AnimatedBuilder(...),
+    ),
+  ),
 
-                  final panelColor = mode == "bike"
-                      ? Colors.cyanAccent
-                      : Colors.orangeAccent;
-
-                  return Opacity(
-                    opacity: glow,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.65),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: panelColor.withOpacity(0.9),
-                          width: 1.8,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: panelColor.withOpacity(0.7),
-                            blurRadius: 18,
-                            spreadRadius: 2,
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // 0–60 time
-                          Text(
-                            "0–60: ${zeroToSixtyResult.toStringAsFixed(2)}s",
-                            style: TextStyle(
-                              color: zeroToSixtyActive
-                                  ? panelColor
-                                  : Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              shadows: [
-                                Shadow(
-                                  color: zeroToSixtyActive
-                                      ? panelColor.withOpacity(0.9)
-                                      : Colors.black,
-                                  blurRadius: zeroToSixtyActive ? 18 : 0,
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(height: 4),
-
-                          // Live horsepower estimate
-                          Text(
-                            "HP (${mode == "bike" ? "Bike" : "Car"}): ${_lastHorsepower.toStringAsFixed(1)}",
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-
-                          const SizedBox(height: 4),
-
-                          // ASCII acceleration graph
-                          Text(
-                            _asciiAccelGraph(),
-                            style: const TextStyle(
-                              color: Colors.white54,
-                              fontSize: 11,
-                              fontFamily: "monospace",
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-
-          // ⭐ SETTINGS BUTTON
-          Positioned(
-            top: 40,
-            left: 20,
-            child: GestureDetector(
-              onTap: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => SettingsScreen(
-                      testMode: testMode,
-                      batterySaver: batterySaver,
-                      mapStyle: mapStyle,
-                      voiceAlerts: voiceAlerts,
-                      simpleDisplay: simpleDisplay,
-                    ),
-                  ),
-                );
-
-                if (result != null) {
-                  _applySettings(result);
-                }
-              },
-              child: const Icon(
-                Icons.settings,
-                size: 34,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+  // SETTINGS BUTTON
+  Positioned(...),
+]
