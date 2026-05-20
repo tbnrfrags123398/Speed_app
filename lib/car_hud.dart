@@ -10,7 +10,6 @@ class CarHUD extends StatelessWidget {
   final double maxSpeedMph;
   final bool simpleDisplay;
 
-  // Performance stats
   final double zeroToSixty;
   final double horsepower;
   final String accelGraph;
@@ -38,7 +37,7 @@ class CarHUD extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // MAIN SPEED
+        // ⭐ MAIN SPEED
         Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -62,7 +61,7 @@ class CarHUD extends StatelessWidget {
           ),
         ),
 
-        // SPEED LIMIT
+        // ⭐ SPEED LIMIT
         Positioned(
           top: 40,
           right: 20,
@@ -84,7 +83,7 @@ class CarHUD extends StatelessWidget {
           ),
         ),
 
-        // TRIP + MAX
+        // ⭐ TRIP + MAX
         Positioned(
           bottom: 40,
           right: 20,
@@ -103,11 +102,13 @@ class CarHUD extends StatelessWidget {
           ),
         ),
 
-        // ⭐ MODE LABEL (middle-left)
+        // ⭐ MODE LABEL (25% height + glow)
         Positioned(
           left: 20,
-          top: MediaQuery.of(context).size.height * 0.40,
-          child: Container(
+          top: MediaQuery.of(context).size.height * 0.25,
+          child: AnimatedContainer(
+            duration: const Duration(seconds: 1),
+            curve: Curves.easeInOut,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
@@ -156,61 +157,86 @@ class CarHUD extends StatelessWidget {
           ),
         ),
 
-        // ⭐ PERFORMANCE PANEL
+        // ⭐ PERFORMANCE PANEL (middle-left + clickable)
         Positioned(
-          bottom: 40,
           left: 20,
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 300),
-            opacity: zeroActive ? 1.0 : 0.85,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.65),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: panelColor.withOpacity(0.9),
-                  width: 1.8,
+          top: MediaQuery.of(context).size.height * 0.55,
+          child: GestureDetector(
+            onTap: () {
+              // reset 0–60
+            },
+            onDoubleTap: () {
+              // start 0–60
+            },
+            onLongPress: () {
+              showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  backgroundColor: Colors.black87,
+                  title: const Text("Performance Stats",
+                      style: TextStyle(color: Colors.white)),
+                  content: Text(
+                    "0–60: ${zeroToSixty.toStringAsFixed(2)}s\n"
+                    "HP: ${horsepower.toStringAsFixed(1)}\n\n"
+                    "$accelGraph",
+                    style: const TextStyle(color: Colors.white70),
+                  ),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: panelColor.withOpacity(0.7),
-                    blurRadius: 18,
-                    spreadRadius: 2,
+              );
+            },
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 300),
+              opacity: zeroActive ? 1.0 : 0.85,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.65),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: panelColor.withOpacity(0.9),
+                    width: 1.8,
                   ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    "0–60: ${zeroToSixty.toStringAsFixed(2)}s",
-                    style: TextStyle(
-                      color: zeroActive ? panelColor : Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                  boxShadow: [
+                    BoxShadow(
+                      color: panelColor.withOpacity(0.7),
+                      blurRadius: 18,
+                      spreadRadius: 2,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "HP (Car): ${horsepower.toStringAsFixed(1)}",
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      "0–60: ${zeroToSixty.toStringAsFixed(2)}s",
+                      style: TextStyle(
+                        color: zeroActive ? panelColor : Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    accelGraph,
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 11,
-                      fontFamily: "monospace",
+                    const SizedBox(height: 4),
+                    Text(
+                      "HP (Car): ${horsepower.toStringAsFixed(1)}",
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      accelGraph,
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                        fontFamily: "monospace",
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

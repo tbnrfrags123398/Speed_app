@@ -26,7 +26,7 @@ class ScooterHUD extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // MAIN SPEED
+        // ⭐ MAIN SPEED
         Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -50,7 +50,7 @@ class ScooterHUD extends StatelessWidget {
           ),
         ),
 
-        // SPEED LIMIT
+        // ⭐ SPEED LIMIT
         Positioned(
           top: 40,
           right: 20,
@@ -72,7 +72,7 @@ class ScooterHUD extends StatelessWidget {
           ),
         ),
 
-        // TRIP + MAX
+        // ⭐ TRIP + MAX
         Positioned(
           bottom: 40,
           right: 20,
@@ -91,11 +91,13 @@ class ScooterHUD extends StatelessWidget {
           ),
         ),
 
-        // ⭐ MODE LABEL (middle-left)
+        // ⭐ MODE LABEL (25% height + glow)
         Positioned(
           left: 20,
-          top: MediaQuery.of(context).size.height * 0.40,
-          child: Container(
+          top: MediaQuery.of(context).size.height * 0.25,
+          child: AnimatedContainer(
+            duration: const Duration(seconds: 1),
+            curve: Curves.easeInOut,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
