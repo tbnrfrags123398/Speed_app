@@ -11,6 +11,11 @@ import 'performance_screen.dart';
 import 'scooter_hud.dart';
 import 'gps_service.dart';
 
+@pragma('vm:entry-point')
+void startCallback() {
+  FlutterForegroundTask.setTaskHandler(GpsTaskHandler());
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
