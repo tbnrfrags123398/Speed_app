@@ -2,246 +2,142 @@ import 'package:flutter/material.dart';
 
 class CarHUD extends StatelessWidget {
   final double speed;
-  final int? speedLimit;
-  final int gpsBars;
-  final double? heading;
-  final double tripDistanceMeters;
-  final int tripSeconds;
-  final double maxSpeedMph;
-  final bool simpleDisplay;
-
-  final double zeroToSixty;
+  final double accel;
   final double horsepower;
-  final String accelGraph;
-  final bool zeroActive;
-  final Color panelColor;
+  final VoidCallback onSwipeRight;
 
   const CarHUD({
     super.key,
     required this.speed,
-    required this.speedLimit,
-    required this.gpsBars,
-    required this.heading,
-    required this.tripDistanceMeters,
-    required this.tripSeconds,
-    required this.maxSpeedMph,
-    required this.simpleDisplay,
-    required this.zeroToSixty,
+    required this.accel,
     required this.horsepower,
-    required this.accelGraph,
-    required this.zeroActive,
-    required this.panelColor,
+    required this.onSwipeRight,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // ⭐ MAIN SPEED
-        Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                speed.toStringAsFixed(0),
-                style: const TextStyle(
-                  fontSize: 120,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.redAccent,
-                ),
-              ),
-              const Text(
-                "MPH",
-                style: TextStyle(
-                  fontSize: 28,
-                  color: Colors.white70,
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // ⭐ SPEED LIMIT
-        Positioned(
-          top: 40,
-          right: 20,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.6),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.redAccent, width: 1.5),
-            ),
-            child: Text(
-              speedLimit == null ? "NO DATA" : "${speedLimit} MPH",
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-
-        // ⭐ TRIP + MAX
-        Positioned(
-          bottom: 40,
-          right: 20,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                "TIME ${tripSeconds ~/ 60}m ${tripSeconds % 60}s",
-                style: const TextStyle(color: Colors.white70, fontSize: 16),
-              ),
-              Text(
-                "MAX ${maxSpeedMph.toStringAsFixed(0)} mph",
-                style: const TextStyle(color: Colors.white70, fontSize: 16),
-              ),
-            ],
-          ),
-        ),
-
-        // ⭐ MODE LABEL (25% height + glow)
-        Positioned(
-          left: 20,
-          top: MediaQuery.of(context).size.height * 0.25,
-          child: AnimatedContainer(
-            duration: const Duration(seconds: 1),
-            curve: Curves.easeInOut,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              gradient: LinearGradient(
-                colors: [
-                  Colors.redAccent.withOpacity(0.25),
-                  Colors.orangeAccent.withOpacity(0.15),
-                ],
-              ),
-              border: Border.all(
-                width: 2.5,
-                color: Colors.redAccent,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.redAccent.withOpacity(0.7),
-                  blurRadius: 25,
-                  spreadRadius: 2,
-                ),
-                BoxShadow(
-                  color: Colors.orangeAccent.withOpacity(0.4),
-                  blurRadius: 40,
-                  spreadRadius: 6,
-                ),
-              ],
-            ),
-            child: Row(
-              children: const [
-                Icon(
-                  Icons.directions_car,
-                  size: 26,
-                  color: Colors.redAccent,
-                ),
-                SizedBox(width: 10),
-                Text(
+    return GestureDetector(
+      onHorizontalDragEnd: (details) {
+        if (details.primaryVelocity != null && details.primaryVelocity! < 0) {
+          onSwipeRight();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          children: [
+            // ⭐ MODE LABEL (25% height)
+            Positioned(
+              top: MediaQuery.of(context).size.height * 0.25,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Text(
                   "CAR MODE",
                   style: TextStyle(
-                    fontSize: 22,
+                    color: Colors.white.withOpacity(0.25),
+                    fontSize: 40,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
+                    letterSpacing: 4,
+                  ),
+                ),
+              ),
+            ),
+
+            // ⭐ MAIN HUD CONTENT
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // SPEED
+                Text(
+                  "${speed.toStringAsFixed(1)}",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 120,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Text(
+                  "MPH",
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 28,
+                    letterSpacing: 3,
+                  ),
+                ),
+
+                const SizedBox(height: 40),
+
+                // ACCELERATION BAR
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 40),
+                  child: Column(
+                    children: [
+                      const Text(
+                        "ACCELERATION",
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 18,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      LinearProgressIndicator(
+                        value: accel,
+                        minHeight: 10,
+                        backgroundColor: Colors.white12,
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          Colors.redAccent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 40),
+
+                // HORSEPOWER
+                Text(
+                  "${horsepower.toStringAsFixed(0)} HP",
+                  style: const TextStyle(
                     color: Colors.redAccent,
+                    fontSize: 40,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 60),
+
+                // ⭐ PERFORMANCE PANEL BUTTON
+                GestureDetector(
+                  onTap: onSwipeRight,
+                  child: Container(
+                    width: 260,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 18, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.white10,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.redAccent, width: 2),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        "OPEN PERFORMANCE SCREEN →",
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
+          ],
         ),
-
-        // ⭐ PERFORMANCE PANEL (middle-left + clickable)
-        Positioned(
-          left: 20,
-          top: MediaQuery.of(context).size.height * 0.55,
-          child: GestureDetector(
-            onTap: () {
-              // reset 0–60
-            },
-            onDoubleTap: () {
-              // start 0–60
-            },
-            onLongPress: () {
-              showDialog(
-                context: context,
-                builder: (_) => AlertDialog(
-                  backgroundColor: Colors.black87,
-                  title: const Text("Performance Stats",
-                      style: TextStyle(color: Colors.white)),
-                  content: Text(
-                    "0–60: ${zeroToSixty.toStringAsFixed(2)}s\n"
-                    "HP: ${horsepower.toStringAsFixed(1)}\n\n"
-                    "$accelGraph",
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                ),
-              );
-            },
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 300),
-              opacity: zeroActive ? 1.0 : 0.85,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.65),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: panelColor.withOpacity(0.9),
-                    width: 1.8,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: panelColor.withOpacity(0.7),
-                      blurRadius: 18,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      "0–60: ${zeroToSixty.toStringAsFixed(2)}s",
-                      style: TextStyle(
-                        color: zeroActive ? panelColor : Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "HP (Car): ${horsepower.toStringAsFixed(1)}",
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      accelGraph,
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 11,
-                        fontFamily: "monospace",
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
+	
