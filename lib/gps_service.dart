@@ -31,11 +31,20 @@ class GpsTaskHandler extends TaskHandler {
       final speedMps = data.speed ?? 0.0;
       final mph = speedMps * 2.23694;
 
+      // GPS Bars based on accuracy
+      double acc = data.accuracy ?? 50;
+      int bars = 1;
+      if (acc < 5) bars = 5;
+      else if (acc < 10) bars = 4;
+      else if (acc < 20) bars = 3;
+      else if (acc < 40) bars = 2;
+
       sendPort?.send({
         "speed": mph,
         "lat": data.latitude,
         "lon": data.longitude,
         "heading": data.heading,
+        "gpsBars": bars,
       });
     });
   }
