@@ -16,6 +16,8 @@ class CarHUD extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double displaySpeed = speed.clamp(0, 9999);
+
     return GestureDetector(
       onHorizontalDragEnd: (details) {
         if (details.primaryVelocity != null && details.primaryVelocity! < 0) {
@@ -26,7 +28,7 @@ class CarHUD extends StatelessWidget {
         backgroundColor: Colors.black,
         body: Stack(
           children: [
-            // ⭐ MODE LABEL (25% height)
+            // MODE LABEL
             Positioned(
               top: MediaQuery.of(context).size.height * 0.25,
               left: 0,
@@ -44,13 +46,13 @@ class CarHUD extends StatelessWidget {
               ),
             ),
 
-            // ⭐ MAIN HUD CONTENT
+            // MAIN HUD CONTENT
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // SPEED
                 Text(
-                  "${speed.toStringAsFixed(1)}",
+                  displaySpeed.toStringAsFixed(1),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 120,
@@ -82,7 +84,7 @@ class CarHUD extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
                       LinearProgressIndicator(
-                        value: accel,
+                        value: accel.clamp(0, 1),
                         minHeight: 10,
                         backgroundColor: Colors.white12,
                         valueColor: const AlwaysStoppedAnimation<Color>(
@@ -107,13 +109,15 @@ class CarHUD extends StatelessWidget {
 
                 const SizedBox(height: 60),
 
-                // ⭐ PERFORMANCE PANEL BUTTON
+                // PERFORMANCE PANEL BUTTON
                 GestureDetector(
                   onTap: onSwipeRight,
                   child: Container(
                     width: 260,
                     padding: const EdgeInsets.symmetric(
-                        vertical: 18, horizontal: 20),
+                      vertical: 18,
+                      horizontal: 20,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white10,
                       borderRadius: BorderRadius.circular(16),
@@ -140,4 +144,4 @@ class CarHUD extends StatelessWidget {
     );
   }
 }
-	
+

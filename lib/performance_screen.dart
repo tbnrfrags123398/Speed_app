@@ -1,11 +1,13 @@
-import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'package:flutter/material.dart';
 
 class PerformanceScreen extends StatelessWidget {
   final double speed;
   final double accel;
   final double horsepower;
   final List<double> hpHistory;
+  final int zeroTo30Ms;
+  final int zeroTo60Ms;
   final VoidCallback onSwipeLeft;
 
   const PerformanceScreen({
@@ -14,11 +16,20 @@ class PerformanceScreen extends StatelessWidget {
     required this.accel,
     required this.horsepower,
     required this.hpHistory,
+    required this.zeroTo30Ms,
+    required this.zeroTo60Ms,
     required this.onSwipeLeft,
   });
 
   @override
   Widget build(BuildContext context) {
+    final double displaySpeed = speed.clamp(0, 9999);
+
+    String _formatMs(int ms) {
+      if (ms <= 0) return "--.--s";
+      return (ms / 1000.0).toStringAsFixed(2) + "s";
+    }
+
     return GestureDetector(
       onHorizontalDragEnd: (details) {
         if (details.primaryVelocity != null &&
@@ -38,7 +49,7 @@ class PerformanceScreen extends StatelessWidget {
           child: SafeArea(
             child: Row(
               children: [
-                // ⭐ LEFT SIDE — STATS
+                // LEFT SIDE — STATS
                 Expanded(
                   flex: 1,
                   child: Padding(
@@ -58,9 +69,8 @@ class PerformanceScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 20),
 
-                        // SPEED
                         Text(
-                          "Speed: ${speed.toStringAsFixed(1)} MPH",
+                          "Speed: ${displaySpeed.toStringAsFixed(1)} MPH",
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 22,
@@ -68,9 +78,8 @@ class PerformanceScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 10),
 
-                        // ACCEL
                         Text(
-                          "Accel: ${(accel * 100).toStringAsFixed(0)}%",
+                          "Accel: ${(accel * 100).clamp(0, 100).toStringAsFixed(0)}%",
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 22,
@@ -78,7 +87,6 @@ class PerformanceScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 10),
 
-                        // HORSEPOWER
                         Text(
                           "Horsepower: ${horsepower.toStringAsFixed(0)} HP",
                           style: const TextStyle(
@@ -90,7 +98,6 @@ class PerformanceScreen extends StatelessWidget {
 
                         const SizedBox(height: 30),
 
-                        // PEAK HP
                         Text(
                           "Peak HP: ${_peakHP().toStringAsFixed(0)}",
                           style: const TextStyle(
@@ -102,9 +109,16 @@ class PerformanceScreen extends StatelessWidget {
 
                         const SizedBox(height: 30),
 
-                        // 0–60 (FAKE SIM)
                         Text(
-                          "0–60: ${_fakeZeroToSixty().toStringAsFixed(2)}s",
+                          "0–30: ${_formatMs(zeroTo30Ms)}",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          "0–60: ${_formatMs(zeroTo60Ms)}",
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 22,
@@ -113,7 +127,6 @@ class PerformanceScreen extends StatelessWidget {
 
                         const Spacer(),
 
-                        // BACK BUTTON
                         GestureDetector(
                           onTap: onSwipeLeft,
                           child: Container(
@@ -140,7 +153,7 @@ class PerformanceScreen extends StatelessWidget {
                   ),
                 ),
 
-                // ⭐ RIGHT SIDE — DYNO GRAPH
+                // RIGHT SIDE — DYNO GRAPH
                 Expanded(
                   flex: 1,
                   child: Padding(
@@ -163,15 +176,9 @@ class PerformanceScreen extends StatelessWidget {
     if (hpHistory.isEmpty) return horsepower;
     return hpHistory.reduce((a, b) => a > b ? a : b);
   }
-
-  double _fakeZeroToSixty() {
-    // Simulated 0–60 time based on accel
-    if (accel <= 0) return 6.5;
-    return (6.5 / (accel + 0.1)).clamp(2.8, 6.5);
-  }
 }
 
-// ⭐ DYNO GRAPH PAINTER — RED NEON LINE
+// DYNO GRAPH PAINTER
 class DynoGraphPainter extends CustomPainter {
   final List<double> hpHistory;
 
@@ -179,6 +186,8 @@ class DynoGraphPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (hpHistory.isEmpty) return;
+
     final paint = Paint()
       ..color = Colors.redAccent
       ..strokeWidth = 3
@@ -187,15 +196,14 @@ class DynoGraphPainter extends CustomPainter {
 
     final path = Path();
 
-    if (hpHistory.isEmpty) return;
-
     double maxHP = hpHistory.reduce((a, b) => a > b ? a : b);
     maxHP = maxHP < 1 ? 1 : maxHP;
 
     for (int i = 0; i < hpHistory.length; i++) {
-      final x = (i / hpHistory.length) * size.width;
-      final y = size.height -
-          ((hpHistory[i] / maxHP) * size.height);
+      final double x =
+          (i / (hpHistory.length - 1).clamp(1, 9999)) * size.width;
+      final double y =
+          size.height - ((hpHistory[i] / maxHP) * size.height);
 
       if (i == 0) {
         path.moveTo(x, y);

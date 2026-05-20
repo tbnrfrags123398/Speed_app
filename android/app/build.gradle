@@ -17,10 +17,14 @@ def flutterVersionName = localProperties.getProperty("flutter.versionName") ?: "
 
 android {
     namespace = "com.example.speed_app"
+
+    // ⭐ Force ONE SDK version so GitHub Actions stops installing 30, 31, 33
     compileSdk = 34
+
+    // ⭐ Required for Flutter 3.22
     ndkVersion = flutter.ndkVersion
 
-    // ⭐ Modern Java/Kotlin support
+    // ⭐ Modern Java/Kotlin support (fastest + most compatible)
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -33,19 +37,29 @@ android {
     defaultConfig {
         applicationId = "com.example.speed_app"
 
-        // ⭐ REQUIRED FOR flutter_compass
+        // ⭐ Minimum supported by Flutter + your plugins
         minSdkVersion 23
 
-        targetSdkVersion flutter.targetSdkVersion
+        // ⭐ Force one target SDK (prevents GitHub from installing 3 extra platforms)
+        targetSdkVersion 34
+
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }
 
     buildTypes {
         release {
+            // ⭐ Debug signing for easy GitHub builds
             signingConfig = signingConfigs.debug
+
+            // ⭐ Keep these off unless you want Play Store shrinking
             minifyEnabled false
             shrinkResources false
+
+            // ⭐ MASSIVE SPEED BOOST: disable native debug symbols
+            ndk {
+                debugSymbolLevel 'none'
+            }
         }
     }
 }
@@ -53,3 +67,4 @@ android {
 flutter {
     source = "../.."
 }
+

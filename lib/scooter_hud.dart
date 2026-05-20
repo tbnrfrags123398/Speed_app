@@ -24,19 +24,21 @@ class ScooterHUD extends StatelessWidget {
   });
 
   String _headingText() {
-    final dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+    const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
     int index = ((headingDegrees % 360) / 45).round() % 8;
     return dirs[index];
   }
 
   String _formatTime(int seconds) {
-    int m = seconds ~/ 60;
-    int s = seconds % 60;
+    final int m = seconds ~/ 60;
+    final int s = seconds % 60;
     return "${m}m ${s}s";
   }
 
   @override
   Widget build(BuildContext context) {
+    final double displaySpeed = speed.clamp(0, 9999);
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -83,7 +85,7 @@ class ScooterHUD extends StatelessWidget {
 
             // SPEED
             Text(
-              speed.toStringAsFixed(1),
+              displaySpeed.toStringAsFixed(1),
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 120,
@@ -105,7 +107,7 @@ class ScooterHUD extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
               child: LinearProgressIndicator(
-                value: accel,
+                value: accel.clamp(0, 1),
                 minHeight: 10,
                 backgroundColor: Colors.white12,
                 valueColor: const AlwaysStoppedAnimation<Color>(
@@ -166,4 +168,3 @@ class ScooterHUD extends StatelessWidget {
     );
   }
 }
-

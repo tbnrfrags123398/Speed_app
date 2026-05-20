@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:isolate';
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -29,10 +30,25 @@ void main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  ThemeData _buildDarkTheme() {
+    return ThemeData(
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: Colors.black,
+      colorScheme: const ColorScheme.dark(
+        primary: Colors.blueAccent,
+        secondary: Colors.blueAccent,
+      ),
+      fontFamily: 'Roboto',
+      useMaterial3: true,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'Speed App',
       debugShowCheckedModeBanner: false,
+      theme: _buildDarkTheme(),
       home: const PermissionGate(),
     );
   }
@@ -47,6 +63,7 @@ class PermissionGate extends StatefulWidget {
 
 class _PermissionGateState extends State<PermissionGate> {
   bool checking = true;
+  bool deniedOnce = false;
 
   @override
   void initState() {
@@ -58,12 +75,16 @@ class _PermissionGateState extends State<PermissionGate> {
     final status = await Permission.locationWhenInUse.status;
 
     if (status.isGranted) {
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const MainPage()),
       );
     } else {
-      setState(() => checking = false);
+      setState(() {
+        checking = false;
+        deniedOnce = status.isDenied || status.isPermanentlyDenied;
+      });
     }
   }
 
@@ -71,12 +92,15 @@ class _PermissionGateState extends State<PermissionGate> {
     final result = await Permission.locationWhenInUse.request();
 
     if (result.isGranted) {
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const MainPage()),
       );
     } else {
-      setState(() {});
+      setState(() {
+        deniedOnce = true;
+      });
     }
   }
 
@@ -84,7 +108,6 @@ class _PermissionGateState extends State<PermissionGate> {
   Widget build(BuildContext context) {
     if (checking) {
       return const Scaffold(
-        backgroundColor: Colors.black,
         body: Center(
           child: CircularProgressIndicator(color: Colors.white),
         ),
@@ -92,32 +115,50 @@ class _PermissionGateState extends State<PermissionGate> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.black,
       body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.location_off, size: 80, color: Colors.redAccent),
-            const SizedBox(height: 20),
-            const Text(
-              "GPS REQUIRED",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.location_off, size: 80, color: Colors.redAccent),
+              const SizedBox(height: 20),
+              const Text(
+                "GPS REQUIRED",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              "This app needs GPS to work.",
-              style: TextStyle(color: Colors.white70, fontSize: 18),
-            ),
-            const SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: _requestPermission,
-              child: const Text("Allow GPS"),
-            ),
-          ],
+              const SizedBox(height: 10),
+              Text(
+                deniedOnce
+                    ? "You denied GPS before. Enable it so the speedometer can work."
+                    : "This app needs GPS to show your speed and trip data.",
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70, fontSize: 16),
+              ),
+              const SizedBox(height: 30),
+              ElevatedButton(
+                onPressed: _requestPermission,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blueAccent,
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                child: const Text(
+                  "Allow GPS",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -144,17 +185,31 @@ class _MainPageState extends State<MainPage> {
 
   double? lastLat;
   double? lastLon;
-  DateTime? tripStartTime;
 
   // Live Performance Data
   double speed = 0;
   double accel = 0;
   double horsepower = 0;
 
+  // Instant startup speed
+  double? lastKnownSpeed;
+
   // Dyno History
-  List<double> hpHistory = [];
+  final List<double> hpHistory = [];
+
+  // Trip auto‑pause
+  bool tripPaused = true;
+  double _prevSpeed = 0.0;
+
+  // Real 0–30 / 0–60 timers (ms)
+  int zeroTo30Ms = 0;
+  int zeroTo60Ms = 0;
+  DateTime? _launchStart;
+  bool _hit30 = false;
+  bool _hit60 = false;
 
   final PageController _controller = PageController();
+  StreamSubscription? _portSub;
 
   @override
   void initState() {
@@ -162,11 +217,19 @@ class _MainPageState extends State<MainPage> {
     _initForegroundService();
   }
 
+  @override
+  void dispose() {
+    _portSub?.cancel();
+    _receivePort?.close();
+    _controller.dispose();
+    super.dispose();
+  }
+
   Future<void> _initForegroundService() async {
     _receivePort = await FlutterForegroundTask.receivePort;
 
     if (_receivePort != null) {
-      _receivePort!.listen((data) {
+      _portSub = _receivePort!.listen((data) {
         if (data is Map) {
           _updateFromGps(data);
         }
@@ -182,30 +245,35 @@ class _MainPageState extends State<MainPage> {
 
   void _updateFromGps(Map data) {
     setState(() {
-      speed = data["speed"] ?? 0.0;
-      gpsHeading = data["heading"] ?? 0.0;
+      final double newSpeed = (data["speed"] ?? 0.0).toDouble();
+      speed = newSpeed;
+      lastKnownSpeed = speed;
 
-      double lat = data["lat"] ?? 0.0;
-      double lon = data["lon"] ?? 0.0;
+      gpsHeading = (data["heading"] ?? 0.0).toDouble();
 
-      // GPS Bars (based on accuracy)
-      gpsBars = data["gpsBars"] ?? 1;
+      final double lat = (data["lat"] ?? 0.0).toDouble();
+      final double lon = (data["lon"] ?? 0.0).toDouble();
 
-      // Trip Start
-      tripStartTime ??= DateTime.now();
+      gpsBars = (data["gpsBars"] ?? 1).toInt().clamp(0, 5);
 
-      // Trip Timer
-      tripSeconds = DateTime.now().difference(tripStartTime!).inSeconds;
+      // Auto‑pause / resume trip
+      final bool moving = speed >= 1.0;
+      tripPaused = !moving;
 
-      // Trip Distance
-      if (lastLat != null && lastLon != null) {
+      // Trip time: count only when moving (1 tick ≈ 1s)
+      if (!tripPaused) {
+        tripSeconds++;
+      }
+
+      // Trip distance: only when moving
+      if (!tripPaused && lastLat != null && lastLon != null) {
         tripDistanceMeters += _distanceBetween(lastLat!, lastLon!, lat, lon);
       }
 
       lastLat = lat;
       lastLon = lon;
 
-      // Max Speed
+      // Max speed
       if (speed > maxSpeedMph) {
         maxSpeedMph = speed;
       }
@@ -215,28 +283,65 @@ class _MainPageState extends State<MainPage> {
       horsepower = (speed * accel * 3).clamp(0, 250);
 
       hpHistory.add(horsepower);
-      if (hpHistory.length > 200) hpHistory.removeAt(0);
+      if (hpHistory.length > 300) hpHistory.removeAt(0);
+
+      // REAL 0–30 / 0–60 timers
+      _updateLaunchTimers();
+
+      _prevSpeed = speed;
     });
   }
 
+  void _updateLaunchTimers() {
+    // Start launch when crossing from basically stopped to moving
+    if (_launchStart == null && _prevSpeed < 1.0 && speed >= 1.0) {
+      _launchStart = DateTime.now();
+      _hit30 = false;
+      _hit60 = false;
+      zeroTo30Ms = 0;
+      zeroTo60Ms = 0;
+    }
+
+    if (_launchStart != null) {
+      final int elapsedMs =
+          DateTime.now().difference(_launchStart!).inMilliseconds;
+
+      if (!_hit30 && speed >= 30.0) {
+        _hit30 = true;
+        zeroTo30Ms = elapsedMs;
+      }
+
+      if (!_hit60 && speed >= 60.0) {
+        _hit60 = true;
+        zeroTo60Ms = elapsedMs;
+      }
+
+      // If we slow back down a lot, reset launch
+      if (speed < 3.0 && elapsedMs > 8000 && !_hit60) {
+        _launchStart = null;
+      }
+    }
+  }
+
   double _distanceBetween(double lat1, double lon1, double lat2, double lon2) {
-    const R = 6371000;
-    double dLat = (lat2 - lat1) * 0.0174533;
-    double dLon = (lon2 - lon1) * 0.0174533;
+    const R = 6371000.0;
+    final double dLat = (lat2 - lat1) * (pi / 180.0);
+    final double dLon = (lon2 - lon1) * (pi / 180.0);
 
-    double a = (sin(dLat / 2) * sin(dLat / 2)) +
-        cos(lat1 * 0.0174533) *
-            cos(lat2 * 0.0174533) *
-            (sin(dLon / 2) * sin(dLon / 2));
+    final double a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1 * (pi / 180.0)) *
+            cos(lat2 * (pi / 180.0)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
 
-    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    final double c = 2 * atan2(sqrt(a), sqrt(1 - a));
     return R * c;
   }
 
   void goToPerformance() {
     _controller.animateToPage(
       2,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
     );
   }
@@ -244,21 +349,22 @@ class _MainPageState extends State<MainPage> {
   void goToCarHUD() {
     _controller.animateToPage(
       1,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final double displaySpeed = lastKnownSpeed ?? speed;
+
     return Scaffold(
-      backgroundColor: Colors.black,
       body: PageView(
         controller: _controller,
         physics: const BouncingScrollPhysics(),
         children: [
           ScooterHUD(
-            speed: speed,
+            speed: displaySpeed,
             accel: accel,
             horsepower: horsepower,
             gpsBars: gpsBars,
@@ -268,16 +374,18 @@ class _MainPageState extends State<MainPage> {
             maxSpeedMph: maxSpeedMph,
           ),
           CarHUD(
-            speed: speed,
+            speed: displaySpeed,
             accel: accel,
             horsepower: horsepower,
             onSwipeRight: goToPerformance,
           ),
           PerformanceScreen(
-            speed: speed,
+            speed: displaySpeed,
             accel: accel,
             horsepower: horsepower,
             hpHistory: hpHistory,
+            zeroTo30Ms: zeroTo30Ms,
+            zeroTo60Ms: zeroTo60Ms,
             onSwipeLeft: goToCarHUD,
           ),
         ],
@@ -285,4 +393,3 @@ class _MainPageState extends State<MainPage> {
     );
   }
 }
-

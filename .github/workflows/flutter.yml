@@ -1,45 +1,64 @@
-name: Build Android APK
+name: Build Flutter APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
-    env:
-      PUB_ENVIRONMENT: flutter_ignore_pub_advisories  # ⭐ FIXES PUB BUG
-
     steps:
-      - name: Checkout repository
+      # ---------------------------------------------------------
+      # 1. Checkout repo
+      # ---------------------------------------------------------
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
+      # ---------------------------------------------------------
+      # 2. Cache Flutter SDK
+      # ---------------------------------------------------------
+      - name: Cache Flutter SDK
+        uses: actions/cache@v3
         with:
-          distribution: temurin
-          java-version: 17
+          path: /opt/hostedtoolcache/flutter
+          key: flutter-sdk-${{ runner.os }}-${{ hashFiles('pubspec.yaml') }}
 
+      # ---------------------------------------------------------
+      # 3. Install Flutter (uses cached version if available)
+      # ---------------------------------------------------------
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.3'
-          cache: false
+          channel: stable
 
-      - name: Clean Flutter
-        run: flutter clean
+      # ---------------------------------------------------------
+      # 4. Cache Gradle
+      # ---------------------------------------------------------
+      - name: Cache Gradle
+        uses: actions/cache@v3
+        with:
+          path: ~/.gradle
+          key: gradle-cache-${{ runner.os }}-${{ hashFiles('android/**') }}
 
-      - name: Fresh pub get (no advisories)
-        run: flutter pub get --no-precompile
+      # ---------------------------------------------------------
+      # 5. Install dependencies
+      # ---------------------------------------------------------
+      - name: Flutter Pub Get
+        run: flutter pub get
 
-      - name: Build release APK
-        run: flutter build apk --release
+      # ---------------------------------------------------------
+      # 6. Build APK (FAST)
+      # ---------------------------------------------------------
+      - name: Build Release APK
+        run: flutter build apk --release --split-per-abi
 
-      - name: Upload APK
+      # ---------------------------------------------------------
+      # 7. Upload APK artifacts
+      # ---------------------------------------------------------
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: build/app/outputs/flutter-apk/app-release.apk
-
+          name: speed_app_apks
+          path: build/app/outputs/flutter-apk/*.apk
