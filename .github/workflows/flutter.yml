@@ -17,7 +17,43 @@ jobs:
         uses: actions/checkout@v4
 
       # ---------------------------------------------------------
-      # 2. Cache Flutter SDK
+      # 2. Install Java 17 (REQUIRED for AGP 8+)
+      # ---------------------------------------------------------
+      - name: Set up Java 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # ---------------------------------------------------------
+      # 3. Auto‑patch Android build files (PERMANENT FIX)
+      # ---------------------------------------------------------
+      - name: Auto-fix Android build files
+        run: |
+          echo "🔧 Patching Android build files..."
+
+          # Force Kotlin 1.9.22
+          sed -i 's/ext.kotlin_version = .*/ext.kotlin_version = "1.9.22"/' android/build.gradle || true
+
+          # Force Gradle wrapper 8.2
+          sed -i 's/distributionUrl=.*/distributionUrl=https\:\/\/services.gradle.org\/distributions\/gradle-8.2-bin.zip/' android/gradle/wrapper/gradle-wrapper.properties || true
+
+          # Force AGP 8.2.1
+sed -i 's/com.android.tools.build:gradle:[0-9\.]*/com.android.tools.build:gradle:8.2.1/' android/build.gradle || true
+
+          # Force JVM 17
+          sed -i 's/jvmTarget = .*/jvmTarget = "17"/' android/app/build.gradle || true
+          sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/' android/app/build.gradle || true
+
+          # Force compileSdk 34
+          sed -i 's/compileSdk = .*/compileSdk = 34/' android/app/build.gradle || true
+
+          # Ensure gradle.properties is correct
+          echo "kotlin.jvm.target=17" >> android/gradle.properties
+          echo "android.defaults.buildfeatures.buildconfig=true" >> android/gradle.properties
+
+      # ---------------------------------------------------------
+      # 4. Cache Flutter SDK
       # ---------------------------------------------------------
       - name: Cache Flutter SDK
         uses: actions/cache@v3
@@ -26,7 +62,7 @@ jobs:
           key: flutter-sdk-${{ runner.os }}-${{ hashFiles('pubspec.yaml') }}
 
       # ---------------------------------------------------------
-      # 3. Install Flutter (uses cached version if available)
+      # 5. Install Flutter
       # ---------------------------------------------------------
       - name: Install Flutter
         uses: subosito/flutter-action@v2
@@ -34,7 +70,7 @@ jobs:
           channel: stable
 
       # ---------------------------------------------------------
-      # 4. Cache Gradle
+      # 6. Cache Gradle
       # ---------------------------------------------------------
       - name: Cache Gradle
         uses: actions/cache@v3
@@ -43,22 +79,75 @@ jobs:
           key: gradle-cache-${{ runner.os }}-${{ hashFiles('android/**') }}
 
       # ---------------------------------------------------------
-      # 5. Install dependencies
+      # 7. Install dependencies
       # ---------------------------------------------------------
       - name: Flutter Pub Get
         run: flutter pub get
 
       # ---------------------------------------------------------
-      # 6. Build APK (FAST)
+      # 8. Build APK (FAST + FIXED)
       # ---------------------------------------------------------
       - name: Build Release APK
         run: flutter build apk --release --split-per-abi
 
       # ---------------------------------------------------------
-      # 7. Upload APK artifacts
+      # 9. Upload APK artifacts
       # ---------------------------------------------------------
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
           name: speed_app_apks
           path: build/app/outputs/flutter-apk/*.apk
+
+      # ---------------------------------------------------------
+      # 10. Discord Webhook Notification (Fancy Embed)
+      # ---------------------------------------------------------
+      - name: Notify Discord (Start/Success/Fail)
+        if: always()
+        run: |
+          WEBHOOK_URL="${{ secrets.DISCORD_WEBHOOK }}"
+          STATUS="${{ job.status }}"
+          COMMIT="${{ github.sha }}"
+          AUTHOR="${{ github.actor }}"
+          BRANCH="${{ github.ref_name }}"
+          RUN_ID="${{ github.run_id }}"
+          REPO="${{ github.repository }}"
+          ACTION_URL="https://github.com/${REPO}/actions/runs/${RUN_ID}"
+
+          if [[ "$STATUS" == "success" ]]; then
+            COLOR=3066993
+            TITLE="🎉 Build Succeeded"
+            DESCRIPTION="Your APK is ready to download."
+          elif [[ "$STATUS" == "failure" ]]; then
+            COLOR=15158332
+            TITLE="❌ Build Failed"
+            DESCRIPTION="Check the GitHub Actions logs."
+          else
+            COLOR=3447003
+            TITLE="⚙️ Build Started"
+            DESCRIPTION="The build is now running."
+          fi
+
+          JSON=$(cat <<EOF
+          {
+            "embeds": [{
+              "title": "$TITLE",
+              "description": "$DESCRIPTION",
+              "color": $COLOR,
+              "fields": [
+                { "name": "Commit", "value": "$COMMIT", "inline": true },
+                { "name": "Branch", "value": "$BRANCH", "inline": true },
+                { "name": "Author", "value": "$AUTHOR", "inline": true },
+                { "name": "Action Run", "value": "[View Logs]($ACTION_URL)", "inline": false }
+              ],
+              "footer": { "text": "Speed App Auto‑Build System" },
+              "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            }]
+          }
+          EOF
+          )
+
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d "$JSON" \
+               "$WEBHOOK_URL"

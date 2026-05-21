@@ -1,10 +1,65 @@
 #!/bin/bash
 set -e
 
+echo "🔧 Auto-fixing Android build files before pushing..."
+
+fix_file() {
+    FILE=$1
+
+    # Kotlin version
+    sed -i 's/ext.kotlin_version = .*/ext.kotlin_version = "1.9.22"/' $FILE || true
+
+    # JVM target
+    sed -i 's/jvmTarget = .*/jvmTarget = "17"/' $FILE || true
+    sed -i 's/JavaVersion.VERSION_1_8/JavaVersion.VERSION_17/' $FILE || true
+
+    # compileSdk
+    sed -i 's/compileSdk = .*/compileSdk = 34/' $FILE || true
+
+    # AGP version
+    sed -i 's/com.android.tools.build:gradle:.*/com.android.tools.build:gradle:8.2.1"/' $FILE || true
+}
+
+# Patch all Android build files
+fix_file android/build.gradle
+fix_file android/app/build.gradle
+fix_file android/gradle.properties
+
+# Patch Gradle wrapper
+sed -i 's/distributionUrl=.*/distributionUrl=https\:\/\/services.gradle.org\/distributions\/gradle-8.2-bin.zip/' \
+    android/gradle/wrapper/gradle-wrapper.properties || true
+
+echo "✅ Android build files patched locally."
+
+# -------------------------------
+# VERSION CHECKER
+# -------------------------------
+echo "🔎 Checking versions..."
+
+KOTLIN_LOCAL=$(grep -oP 'kotlin_version = "\K[^"]+' android/build.gradle || echo "unknown")
+JVM_LOCAL=$(grep -oP 'jvmTarget = "\K[^"]+' android/app/build.gradle || echo "unknown")
+SDK_LOCAL=$(grep -oP 'compileSdk = \K[0-9]+' android/app/build.gradle || echo "unknown")
+
+echo "📌 Kotlin: $KOTLIN_LOCAL"
+echo "📌 JVM: $JVM_LOCAL"
+echo "📌 compileSdk: $SDK_LOCAL"
+
+if [[ "$KOTLIN_LOCAL" != "1.9.22" || "$JVM_LOCAL" != "17" || "$SDK_LOCAL" != "34" ]]; then
+    echo "⚠️ Version mismatch detected — patching again..."
+    fix_file android/build.gradle
+    fix_file android/app/build.gradle
+    fix_file android/gradle.properties
+    echo "🔁 Re-patched."
+else
+    echo "✅ All versions correct."
+fi
+
+# -------------------------------
+# GitHub token + repo setup
+# -------------------------------
 REPO="tbnrfrags123398/Speed_app"
 PACKAGE="com.example.speed_app"
 
-# Load GitHub token
 if [[ ! -f ~/.github_token ]]; then
     echo "❌ ERROR: ~/.github_token not found."
     echo "Create it with: nano ~/.github_token"
