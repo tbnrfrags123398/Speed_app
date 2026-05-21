@@ -39,7 +39,7 @@ jobs:
           sed -i 's/distributionUrl=.*/distributionUrl=https\:\/\/services.gradle.org\/distributions\/gradle-8.2-bin.zip/' android/gradle/wrapper/gradle-wrapper.properties || true
 
           # Force AGP 8.2.1
-sed -i 's/com.android.tools.build:gradle:[0-9\.]*/com.android.tools.build:gradle:8.2.1/' android/build.gradle || true
+          sed -i 's/com.android.tools.build:gradle:[0-9\.]*/com.android.tools.build:gradle:8.2.1/' android/build.gradle || true
 
           # Force JVM 17
           sed -i 's/jvmTarget = .*/jvmTarget = "17"/' android/app/build.gradle || true
